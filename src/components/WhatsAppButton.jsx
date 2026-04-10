@@ -1,7 +1,7 @@
 // WhatsAppButton.jsx
 // Drop <WhatsAppButton /> into App.jsx (outside <Routes>) — it floats on every page.
 
-const WA_NUMBER = "254700000000"; // ← Replace with real Safaricom number
+const WA_NUMBER = "254720461267"; // ← Replace with real Safaricom number
 const WA_MESSAGE = encodeURIComponent(
   "Hello KukuMart! 👋 I'd like to place an order.\n\nMy name is: ___\nI'm in (area): ___\nI'd like to order: ___"
 );

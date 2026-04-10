@@ -30,7 +30,7 @@ const CATEGORIES = [
     emoji: "🐔",
     tag: "Live",
     tagColor: "bg-green-100 text-green-800",
-    price: "From KSh 1,000",
+    price: "From KSh 1,500",
   },
   {
     id: "slaughtered",
@@ -39,7 +39,7 @@ const CATEGORIES = [
     emoji: "🥩",
     tag: "Ready to cook",
     tagColor: "bg-orange-100 text-orange-800",
-    price: "From KSh 700",
+    price: "From KSh 500",
   },
   {
     id: "fried_pieces",
@@ -48,7 +48,7 @@ const CATEGORIES = [
     emoji: "🍗",
     tag: "Ready to eat",
     tagColor: "bg-red-100 text-red-800",
-    price: "From KSh 150/pc",
+    price: "From KSh 40/pc",
   },
   {
     id: "fried_whole",
@@ -57,7 +57,7 @@ const CATEGORIES = [
     emoji: "🍖",
     tag: "Ready to eat",
     tagColor: "bg-red-100 text-red-800",
-    price: "KSh 900",
+    price: "KSh 750",
   },
   {
     id: "bulk",
@@ -138,7 +138,7 @@ const REVIEWS = [
 ];
 
 const DELIVERY_ZONES = [
-  { area: "CBD & Town", fee: "KSh 150", time: "1–2 hrs" },
+  { area: "CBD & Town", fee: "KSh 70", time: "1–2 hrs" },
   { area: "Westlands, Parklands", fee: "KSh 200", time: "1–2 hrs" },
   { area: "South B / C, Lang'ata", fee: "KSh 200", time: "1–2 hrs" },
   { area: "Eastlands (Umoja, Donholm…)", fee: "KSh 200", time: "2–3 hrs" },
@@ -318,7 +318,7 @@ function Hero() {
               {/* Floating badges */}
               <div className="absolute top-4 right-0 bg-white rounded-xl px-3 py-2 shadow-lg">
                 <p className="text-[10px] text-gray-400 font-medium">Same-day delivery</p>
-                <p className="text-xs font-bold text-gray-900">Order by 2 PM ⚡</p>
+                <p className="text-xs font-bold text-gray-900">Order by 4 PM ⚡</p>
               </div>
               <div className="absolute bottom-6 left-0 bg-white rounded-xl px-3 py-2 shadow-lg">
                 <p className="text-[10px] text-gray-400 font-medium">Certified</p>
