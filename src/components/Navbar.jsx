@@ -1,22 +1,101 @@
-import { useState, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
+// src/components/Navbar.jsx
+// Updated to show:
+//   • "Sign in" button when user is NOT logged in
+//   • User avatar + dropdown (Dashboard, Orders, Loyalty, Sign out) when logged in
 
+import { useState, useEffect, useRef } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useCartStore, selectCartCount } from "../store/cartStore";
-
-const useCartCount = () => useCartStore(selectCartCount);
+import { useAuthStore, selectDisplayName, selectInitial, selectIsLoggedIn } from "../store/authStore";
 
 const NAV_LINKS = [
-  { to: "/", label: "Home" },
-  { to: "/shop", label: "Shop" },
-  { to: "/about", label: "About us" },
-  { to: "/contact", label: "Contact" },
+  { to: "/",        label: "Home"     },
+  { to: "/shop",    label: "Shop"     },
+  { to: "/about",   label: "About us" },
+  { to: "/contact", label: "Contact"  },
 ];
+
+function UserMenu({ initial, displayName, onSignOut }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    function handler(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-xl hover:bg-gray-100 transition-colors duration-150"
+        aria-label="Account menu"
+      >
+        <div className="w-7 h-7 rounded-full bg-[#C8290A] flex items-center justify-center text-white text-xs font-bold shrink-0">
+          {initial}
+        </div>
+        <span className="text-sm font-medium text-gray-700 hidden sm:block max-w-100px truncate">
+          {displayName}
+        </span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2.5"
+          strokeLinecap="round" className={`transition-transform duration-150 ${open ? "rotate-180" : ""}`}>
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-full mt-2 w-52 bg-white border border-gray-200 rounded-xl shadow-lg py-1 z-50">
+          <Link to="/dashboard" onClick={() => setOpen(false)}
+            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+              <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+            </svg>
+            My dashboard
+          </Link>
+          <Link to="/orders" onClick={() => setOpen(false)}
+            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+            </svg>
+            My orders
+          </Link>
+          <Link to="/dashboard?tab=loyalty" onClick={() => setOpen(false)}
+            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+            </svg>
+            Loyalty points
+          </Link>
+          <div className="border-t border-gray-100 my-1"/>
+          <button onClick={() => { setOpen(false); onSignOut(); }}
+            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
+              <polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+            Sign out
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const location = useLocation();
-  const cartCount = useCartCount();
+  const location    = useLocation();
+  const navigate    = useNavigate();
+  const cartCount   = useCartStore(selectCartCount);
+  const isLoggedIn  = useAuthStore(selectIsLoggedIn);
+  const displayName = useAuthStore(selectDisplayName);
+  const initial     = useAuthStore(selectInitial);
+  const signOut     = useAuthStore((s) => s.signOut);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10);
@@ -24,39 +103,38 @@ export default function Navbar() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Close menu when navigating
   useEffect(() => setMenuOpen(false), [location.pathname]);
 
-  // Lock body scroll while mobile menu is open
   useEffect(() => {
     document.body.style.overflow = menuOpen ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
   }, [menuOpen]);
 
+  async function handleSignOut() {
+    await signOut();
+    navigate("/");
+  }
+
   return (
-    <header
-      className={`w-full sticky top-0 z-50 bg-white transition-shadow duration-200 ${
-        scrolled ? "shadow-md" : "border-b border-gray-100"
-      }`}
-    >
-      {/* Thin red accent line at very top */}
+    <header className={`w-full sticky top-0 z-50 bg-white transition-shadow duration-200 ${
+      scrolled ? "shadow-md" : "border-b border-gray-100"
+    }`}>
       <div className="h-3px w-full bg-[#C8290A]" />
 
       <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
 
-          {/* ── Logo ── */}
+          {/* Logo */}
           <Link to="/" className="flex items-center gap-3 shrink-0 group">
             <div className="w-9 h-9 bg-[#C8290A] rounded-xl flex items-center justify-center shrink-0 group-hover:bg-[#a82008] transition-colors duration-150">
               <svg width="22" height="22" viewBox="0 0 40 40" fill="none">
-                <ellipse cx="20" cy="27" rx="10" ry="11" fill="white" />
-                <ellipse cx="20" cy="14" rx="7" ry="6.5" fill="white" />
-                <ellipse cx="16.5" cy="8.5" rx="2" ry="2.8" fill="#FCA130" />
-                <ellipse cx="20" cy="7" rx="2" ry="3.3" fill="#FCA130" />
-                <ellipse cx="23.5" cy="8.5" rx="2" ry="2.8" fill="#FCA130" />
-                <polygon points="26,13 32,15.5 26,17.5" fill="#FCA130" />
-                <circle cx="24" cy="12.5" r="1.7" fill="#C8290A" />
-                <path d="M10,24 Q3,15 6,9 Q11,21 12,25Z" fill="rgba(255,255,255,0.4)" />
+                <ellipse cx="20" cy="27" rx="10" ry="11" fill="white"/>
+                <ellipse cx="20" cy="14" rx="7" ry="6.5" fill="white"/>
+                <ellipse cx="16.5" cy="8.5" rx="2" ry="2.8" fill="#FCA130"/>
+                <ellipse cx="20" cy="7" rx="2" ry="3.3" fill="#FCA130"/>
+                <ellipse cx="23.5" cy="8.5" rx="2" ry="2.8" fill="#FCA130"/>
+                <polygon points="26,13 32,15.5 26,17.5" fill="#FCA130"/>
+                <circle cx="24" cy="12.5" r="1.7" fill="#C8290A"/>
               </svg>
             </div>
             <div className="leading-none">
@@ -69,39 +147,27 @@ export default function Navbar() {
             </div>
           </Link>
 
-          {/* ── Desktop nav links ── */}
+          {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-0.5">
             {NAV_LINKS.map(({ to, label }) => {
               const active = location.pathname === to;
               return (
-                <Link
-                  key={to}
-                  to={to}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-150 ${
-                    active
-                      ? "bg-red-50 text-[#C8290A]"
-                      : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
-                  }`}
-                >
-                  {label}
-                </Link>
+                <Link key={to} to={to} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-150 ${
+                  active ? "bg-red-50 text-[#C8290A]" : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+                }`}>{label}</Link>
               );
             })}
           </nav>
 
-          {/* ── Right: cart + CTA + hamburger ── */}
+          {/* Right actions */}
           <div className="flex items-center gap-2">
-
-            {/* Cart icon button */}
-            <Link
-              to="/cart"
-              aria-label="View cart"
-              className="relative flex items-center justify-center w-10 h-10 rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-all duration-150"
-            >
+            {/* Cart */}
+            <Link to="/cart" aria-label="View cart"
+              className="relative flex items-center justify-center w-10 h-10 rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-all duration-150">
               <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z" />
-                <line x1="3" y1="6" x2="21" y2="6" />
-                <path d="M16 10a4 4 0 01-8 0" />
+                <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/>
+                <line x1="3" y1="6" x2="21" y2="6"/>
+                <path d="M16 10a4 4 0 01-8 0"/>
               </svg>
               {cartCount > 0 && (
                 <span className="absolute -top-1 -right-1 min-w-18px h-18px bg-[#C8290A] text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 leading-none">
@@ -110,35 +176,37 @@ export default function Navbar() {
               )}
             </Link>
 
-            {/* Order now — desktop only */}
-            <Link
-              to="/shop"
-              className="hidden md:inline-flex items-center gap-2 bg-[#C8290A] hover:bg-[#a82008] active:bg-[#8a1a06] text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors duration-150 whitespace-nowrap"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="9" cy="21" r="1" />
-                <circle cx="20" cy="21" r="1" />
-                <path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 001.99-1.72L23 6H6" />
-              </svg>
-              Order now
-            </Link>
+            {/* Auth */}
+            {isLoggedIn ? (
+              <UserMenu initial={initial} displayName={displayName} onSignOut={handleSignOut} />
+            ) : (
+              <>
+                <Link to="/login"
+                  className="hidden sm:inline-flex items-center text-sm font-semibold text-gray-600 hover:text-gray-900 px-3 py-2 rounded-xl hover:bg-gray-50 transition-colors duration-150">
+                  Sign in
+                </Link>
+                <Link to="/shop"
+                  className="hidden md:inline-flex items-center gap-2 bg-[#C8290A] hover:bg-[#a82008] text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors duration-150 whitespace-nowrap">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
+                    <path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 001.99-1.72L23 6H6"/>
+                  </svg>
+                  Order now
+                </Link>
+              </>
+            )}
 
-            {/* Hamburger — mobile only */}
-            <button
-              onClick={() => setMenuOpen((v) => !v)}
+            {/* Hamburger */}
+            <button onClick={() => setMenuOpen((v) => !v)}
               aria-label={menuOpen ? "Close menu" : "Open menu"}
-              className="md:hidden flex items-center justify-center w-10 h-10 rounded-xl text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-all duration-150"
-            >
+              className="md:hidden flex items-center justify-center w-10 h-10 rounded-xl text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-all duration-150">
               {menuOpen ? (
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
                 </svg>
               ) : (
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                  <line x1="3" y1="7" x2="21" y2="7" />
-                  <line x1="3" y1="12" x2="21" y2="12" />
-                  <line x1="3" y1="17" x2="21" y2="17" />
+                  <line x1="3" y1="7" x2="21" y2="7"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="17" x2="21" y2="17"/>
                 </svg>
               )}
             </button>
@@ -146,40 +214,28 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* ── Mobile dropdown menu ── */}
+      {/* Mobile menu */}
       {menuOpen && (
         <div className="md:hidden border-t border-gray-100 bg-white">
           <nav className="flex flex-col px-4 py-3 gap-1">
             {NAV_LINKS.map(({ to, label }) => {
               const active = location.pathname === to;
               return (
-                <Link
-                  key={to}
-                  to={to}
-                  className={`px-4 py-3 rounded-xl text-sm font-medium transition-colors duration-150 ${
-                    active
-                      ? "bg-red-50 text-[#C8290A]"
-                      : "text-gray-700 hover:bg-gray-50"
-                  }`}
-                >
-                  {label}
-                </Link>
+                <Link key={to} to={to} className={`px-4 py-3 rounded-xl text-sm font-medium transition-colors duration-150 ${
+                  active ? "bg-red-50 text-[#C8290A]" : "text-gray-700 hover:bg-gray-50"
+                }`}>{label}</Link>
               );
             })}
-
-            {/* Divider */}
-            <div className="my-1 border-t border-gray-100" />
-
-            {/* Mobile order button */}
-            <Link
-              to="/shop"
-              className="flex items-center justify-center gap-2 bg-[#C8290A] hover:bg-[#a82008] text-white text-sm font-semibold px-5 py-3 rounded-xl transition-colors duration-150"
-            >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="9" cy="21" r="1" />
-                <circle cx="20" cy="21" r="1" />
-                <path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 001.99-1.72L23 6H6" />
-              </svg>
+            <div className="my-1 border-t border-gray-100"/>
+            {isLoggedIn ? (
+              <>
+                <Link to="/dashboard" className="px-4 py-3 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50">My dashboard</Link>
+                <button onClick={handleSignOut} className="text-left px-4 py-3 rounded-xl text-sm font-medium text-red-600 hover:bg-red-50">Sign out</button>
+              </>
+            ) : (
+              <Link to="/login" className="px-4 py-3 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50">Sign in / Register</Link>
+            )}
+            <Link to="/shop" className="flex items-center justify-center gap-2 bg-[#C8290A] hover:bg-[#a82008] text-white text-sm font-semibold px-5 py-3 rounded-xl transition-colors duration-150">
               Order now
             </Link>
           </nav>

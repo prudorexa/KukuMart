@@ -8,6 +8,7 @@ import {
   selectCartCount,
   selectCartTotal,
 } from "../store/cartStore";
+import { useAuthStore, selectIsLoggedIn } from "../store/authStore";
 
 /* ── Category emoji lookup ── */
 const CAT_EMOJI = {
@@ -112,6 +113,7 @@ export default function Cart() {
   const count      = useCartStore(selectCartCount);
   const total      = useCartStore(selectCartTotal);
   const clearCart  = useCartStore((s) => s.clearCart);
+  const isLoggedIn = useAuthStore(selectIsLoggedIn);
 
   const DELIVERY_FEE = 200; // Default — will be recalculated on Checkout via map
   const grandTotal   = total + DELIVERY_FEE;
@@ -221,12 +223,27 @@ export default function Cart() {
                 * Exact delivery fee calculated on the next step based on your location.
               </p>
 
+              {/* Sign-in nudge for guests */}
+              {!isLoggedIn && (
+                <div className="mb-4 bg-blue-50 border border-blue-200 rounded-xl p-3 flex items-start gap-2.5">
+                  <span className="text-base shrink-0">👤</span>
+                  <div>
+                    <p className="text-xs font-semibold text-blue-800">Sign in to checkout</p>
+                    <p className="text-xs text-blue-600 mt-0.5">You'll need an account to place your order and track it.</p>
+                    <Link to="/login?next=%2Fcheckout&reason=checkout"
+                      className="inline-block mt-1.5 text-xs font-bold text-[#C8290A] hover:underline">
+                      Sign in / Create account →
+                    </Link>
+                  </div>
+                </div>
+              )}
+
               {/* Proceed button */}
               <button
-                onClick={() => navigate("/checkout")}
+                onClick={() => isLoggedIn ? navigate("/checkout") : navigate("/login?next=%2Fcheckout&reason=checkout")}
                 className="w-full flex items-center justify-center gap-2 bg-[#C8290A] hover:bg-[#a82008] active:bg-[#8a1a06] text-white font-bold text-sm py-3.5 rounded-xl transition-colors duration-150"
               >
-                Proceed to checkout
+                {isLoggedIn ? "Proceed to checkout" : "Sign in to checkout"}
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" />
                 </svg>

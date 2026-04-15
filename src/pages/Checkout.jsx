@@ -12,6 +12,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useCartStore, selectCartTotal } from "../store/cartStore";
+import { useAuthStore } from "../store/authStore";
 
 /* ─────────────────────────────────────
    KASARANI — KukuMart shop location
@@ -285,7 +286,7 @@ function ReviewRow({ label, value, bold, red }) {
   return (
     <div className={`flex justify-between py-2 ${bold ? "border-t border-gray-100 mt-1 pt-3" : ""}`}>
       <span className={`text-sm ${bold ? "font-bold text-gray-900" : "text-gray-500"}`}>{label}</span>
-      <span className={`text-sm font-semibold text-right max-w-[60%] overflow-wrap-break-word ${red ? "text-[#C8290A]" : "text-gray-900"}`}>{value}</span>
+      <span className={`text-sm font-semibold text-right max-w-[60%] break-word ${red ? "text-[#C8290A]" : "text-gray-900"}`}>{value}</span>
     </div>
   );
 }
@@ -352,7 +353,7 @@ function Step1Location({ location, setLocation, manualAddress, setManualAddress,
           <span className="text-lg shrink-0">📍</span>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-green-800">Delivery location set!</p>
-            <p className="text-xs text-green-700 mt-0.5 overflow-wrap-break-word">{location.address}</p>
+            <p className="text-xs text-green-700 mt-0.5 break-word">{location.address}</p>
             <div className="flex flex-wrap items-center gap-3 mt-2">
               <span className="text-xs font-medium text-green-800">{location.zone.label}</span>
               <span className="text-xs font-bold text-[#C8290A] bg-red-50 px-2 py-0.5 rounded-full">
@@ -468,11 +469,15 @@ export default function Checkout() {
   const items     = useCartStore((s) => s.items);
   const subtotal  = useCartStore(selectCartTotal);
   const clearCart = useCartStore((s) => s.clearCart);
+  const user      = useAuthStore((s) => s.user);
+  const profile   = useAuthStore((s) => s.profile);
+  const authLoading = useAuthStore((s) => s.loading);
 
   const [step,    setStep]    = useState(0);
   const [loading, setLoading] = useState(false);
   const [errors,  setErrors]  = useState({});
 
+  // Pre-filled from profile if logged in
   const [name,  setName]  = useState("");
   const [phone, setPhone] = useState("");
   const [notes, setNotes] = useState("");
@@ -483,9 +488,30 @@ export default function Checkout() {
   const [paymentMethod, setPaymentMethod] = useState("mpesa");
 
   useEffect(() => {
-    if (items.length === 0) navigate("/cart");
+    // Wait for auth to initialise before deciding
+    if (authLoading) return;
+
+    // If not logged in, redirect to login with ?next=/checkout&reason=checkout
+    if (!user) {
+      navigate("/login?next=%2Fcheckout&reason=checkout", { replace: true });
+      return;
+    }
+
+    if (items.length === 0) { navigate("/cart"); return; }
+
+    // Pre-fill details from profile
+    if (profile?.full_name && !name) setName(profile.full_name);
+    if (profile?.phone && !phone) {
+      // Normalise to 0XXXXXXXXX display format
+      let p = profile.phone;
+      if (p.startsWith("+254")) p = "0" + p.slice(4);
+      else if (p.startsWith("254")) p = "0" + p.slice(3);
+      setPhone(p);
+    }
+    if (profile?.default_area && !manualAddress) setManualAddress(profile.default_area);
+
     window.scrollTo(0, 0);
-  }, []); // eslint-disable-line
+  }, [authLoading, user, profile, items.length]); // eslint-disable-line
 
   const deliveryFee = location?.zone?.fee ?? 200;
   const grandTotal  = subtotal + deliveryFee;
@@ -517,6 +543,7 @@ export default function Checkout() {
     setLoading(true);
     try {
       const { data, error } = await supabase.from("orders").insert([{
+        user_id:       user?.id ?? null,
         customer_name: name.trim(),
         phone:         phone.trim().replace(/[\s-]/g, ""),
         location:      location?.address ?? manualAddress.trim(),
