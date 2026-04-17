@@ -19,7 +19,7 @@ const CAT_EMOJI = { broiler_live:"🐓", kienyeji_live:"🐔", slaughtered:"🥩
 const PAYMENT_LABELS = { mpesa:"M-Pesa", card:"Card / Bank", cash:"Cash on delivery" };
 
 function formatDate(iso) {
-  return new Date(iso).toLocaleString("en-KE",{ day:"numeric", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit" });
+  return new Date(iso).toLocaleString("en",{ day:"numeric", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit" });
 }
 
 function OrderDetail({ order, onClose, onReorder }) {
@@ -132,24 +132,31 @@ export default function DashOrders() {
   useEffect(() => {
     if (!user) return;
     async function load() {
-      const phone = user.phone ?? profile?.phone ?? "";
-      const variants = [];
-      if (phone) {
-        const p = phone.replace(/[\s-]/g,"");
-        variants.push(p);
-        if (p.startsWith("+254")) variants.push("0"+p.slice(4),"254"+p.slice(1));
-        else if (p.startsWith("254")) variants.push("+"+p,"0"+p.slice(3));
-        else if (p.startsWith("0")) variants.push("254"+p.slice(1),"+254"+p.slice(1));
+      try {
+        setLoading(true);
+        const phone = user.phone ?? profile?.phone ?? "";
+        const variants = [];
+        if (phone) {
+          const p = phone.replace(/[\s-]/g,"");
+          variants.push(p);
+          if (p.startsWith("+254")) variants.push("0"+p.slice(4),"254"+p.slice(1));
+          else if (p.startsWith("254")) variants.push("+"+p,"0"+p.slice(3));
+          else if (p.startsWith("0")) variants.push("254"+p.slice(1),"+254"+p.slice(1));
+        }
+        const results = await Promise.all([
+          variants.length ? supabase.from("orders").select("*").in("phone",variants).order("created_at",{ascending:false}) : Promise.resolve({data:[]}),
+          supabase.from("orders").select("*").eq("user_id",user.id).order("created_at",{ascending:false}),
+        ]);
+        const seen = new Set();
+        const all = results.flatMap(r=>r.data??[]).filter(o=>{ if(seen.has(o.id)) return false; seen.add(o.id); return true; });
+        all.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+        setOrders(all);
+      } catch (err) {
+        console.error("Error loading orders:", err);
+        setOrders([]);
+      } finally {
+        setLoading(false);
       }
-      const results = await Promise.all([
-        variants.length ? supabase.from("orders").select("*").in("phone",variants).order("created_at",{ascending:false}) : Promise.resolve({data:[]}),
-        supabase.from("orders").select("*").eq("user_id",user.id).order("created_at",{ascending:false}),
-      ]);
-      const seen = new Set();
-      const all = results.flatMap(r=>r.data??[]).filter(o=>{ if(seen.has(o.id)) return false; seen.add(o.id); return true; });
-      all.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
-      setOrders(all);
-      setLoading(false);
     }
     load();
   }, [user, profile]);

@@ -172,7 +172,10 @@ function EmailForm({ onSuccess }) {
             <button type="button" onClick={async () => {
               if (!email.trim()) { setError("Enter your email above first."); return; }
               setLoading(true);
-              const { error: e } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase());
+              const { error: e } = await supabase.auth.resetPasswordForEmail(
+                email.trim().toLowerCase(),
+                { redirectTo: `${window.location.origin}/auth/reset-password` }
+              );
               setLoading(false);
               if (e) setError(e.message);
               else setSuccess("Password reset link sent to your email!");
@@ -340,6 +343,7 @@ export default function Login() {
   const navigate       = useNavigate();
   const [searchParams] = useSearchParams();
   const user           = useAuthStore((s) => s.user);
+  const initialized    = useAuthStore((s) => s.initialized);
   const nextPath       = searchParams.get("next") ?? "/dashboard";
   const reason         = searchParams.get("reason"); // "checkout" etc.
 
@@ -347,13 +351,20 @@ export default function Login() {
   const [googleLoad,setGoogleLoad]= useState(false);
   const [googleErr, setGoogleErr] = useState("");
 
-  // Already signed in → redirect
+  // Already signed in AND fully initialized → redirect
   useEffect(() => {
-    if (user) navigate(decodeURIComponent(nextPath), { replace: true });
-  }, [user, navigate, nextPath]);
+    if (user && initialized) {
+      console.log("✓ User signed in, redirecting to", nextPath);
+      const timer = setTimeout(() => {
+        navigate(decodeURIComponent(nextPath), { replace: true });
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [user, initialized, navigate, nextPath]);
 
   function onSuccess() {
-    navigate(decodeURIComponent(nextPath), { replace: true });
+    // Just log success, let the useEffect handle redirect
+    console.log("✓ Sign-in successful, waiting for auth state...");
   }
 
   async function handleGoogle() {

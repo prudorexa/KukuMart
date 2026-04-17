@@ -19,7 +19,7 @@ const CAT_EMOJI = { broiler_live:"🐓", kienyeji_live:"🐔", slaughtered:"🥩
 const PAYMENT_LABELS = { mpesa:"M-Pesa", card:"Card / Bank", cash:"Cash on delivery" };
 
 function formatDate(iso) {
-  return new Date(iso).toLocaleString("en-KE",{ day:"numeric", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit" });
+  return new Date(iso).toLocaleString("en",{ day:"numeric", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit" });
 }
 
 function OrderDetail({ order, onClose, onReorder }) {

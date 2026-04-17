@@ -78,6 +78,8 @@ export default function Dashboard() {
     }
   }, [searchParams]);
 
+  console.log("📊 Dashboard: user=", user?.id, "profile=", profile?.id, "displayName=", displayName);
+
   function changeTab(id) {
     setActiveTab(id);
     setSearchParams(id === "overview" ? {} : { tab: id });

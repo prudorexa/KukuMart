@@ -22,18 +22,33 @@ export const useAuthStore = create((set, get) => ({
 
   /** Called once at app start — bootstraps the session and listens for changes */
   init() {
+    console.log("🔐 Auth Store: Initializing...");
+    
     // Get current session immediately
     supabase.auth.getSession().then(({ data: { session } }) => {
       const user = session?.user ?? null;
-      set({ user, loading: false, initialized: true });
-      if (user) get().fetchProfile(user.id);
+      console.log("🔐 Auth Store: Initial session check -", user ? `User ${user.id}` : "No session");
+      set({ user, loading: false });
+      if (user) {
+        // Fetch profile and THEN mark as initialized
+        get().fetchProfile(user.id).then(() => {
+          set({ initialized: true });
+          console.log("🔐 Auth Store: Profile loaded, initialized = true");
+        }).catch((err) => {
+          console.error("🔐 Auth Store: Profile fetch failed:", err);
+          set({ initialized: true }); // Initialize anyway so app doesn't hang
+        });
+      } else {
+        set({ initialized: true });
+      }
     });
 
     // Subscribe to auth changes (login, logout, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
         const user = session?.user ?? null;
-        set({ user, loading: false });
+        console.log("🔐 Auth State Changed:", _event, user ? `User ${user.id}` : "No user");
+        set({ user, loading: false, initialized: true });
         if (user) {
           await get().fetchProfile(user.id);
         } else {
@@ -43,17 +58,33 @@ export const useAuthStore = create((set, get) => ({
     );
 
     // Return cleanup function for StrictMode
-    return () => subscription.unsubscribe();
+    return () => {
+      console.log("🔐 Auth Store: Cleaning up subscription");
+      subscription.unsubscribe();
+    };
   },
 
   /** Fetch the user's profile from our `profiles` table */
   async fetchProfile(userId) {
-    const { data } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", userId)
-      .single();
-    set({ profile: data ?? null });
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", userId)
+        .single();
+      
+      // If profile doesn't exist, that's fine — user will see empty profile
+      // Log other errors for debugging but don't break the app
+      if (error && error.code !== 'PGRST116') {
+        console.warn("Profile fetch error:", error.message);
+      }
+      
+      set({ profile: data ?? null });
+      return { data, error: error && error.code !== 'PGRST116' ? error : null };
+    } catch (err) {
+      console.error("Profile fetch exception:", err);
+      return { error: err };
+    }
   },
 
   /** Update profile fields and refresh local state */

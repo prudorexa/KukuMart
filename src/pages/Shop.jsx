@@ -151,6 +151,7 @@ export default function Shop() {
     setLoading(true);
     setError(null);
     try {
+      console.log("🛒 Fetching products from Supabase...");
       let query = supabase
         .from("products")
         .select("id, name, description, price, category, image_url, in_stock, weight_kg, created_at");
@@ -177,7 +178,11 @@ export default function Shop() {
       query = query.order(col, { ascending: asc });
 
       const { data, error: sbError } = await query;
-      if (sbError) throw sbError;
+      if (sbError) {
+        console.error("❌ Supabase error:", sbError);
+        throw sbError;
+      }
+      console.log(`✓ Fetched ${data?.length ?? 0} products`);
       setProducts(data ?? []);
     } catch (err) {
       console.error("Shop fetch error:", err);
@@ -188,8 +193,52 @@ export default function Shop() {
   }
 
   useEffect(() => {
+    let isMounted = true;
+
     window.scrollTo(0, 0);
-    fetchProducts();
+
+    // Wrap in isMounted guard so aborted fetches (e.g. from fast navigation)
+    // don't set state on an unmounted component
+    async function safeFetch() {
+      setLoading(true);
+      setError(null);
+      try {
+        const sortMap = {
+          created_at_desc: { col: "created_at", asc: false },
+          price_asc:       { col: "price",      asc: true  },
+          price_desc:      { col: "price",      asc: false },
+          name_asc:        { col: "name",        asc: true  },
+        };
+        const { col, asc } = sortMap[sort] ?? sortMap.created_at_desc;
+
+        let query = supabase
+          .from("products")
+          .select("id, name, description, price, category, image_url, in_stock, weight_kg, created_at")
+          .order(col, { ascending: asc });
+
+        if (activeCategory !== "all") {
+          query = query.eq("category", activeCategory);
+        }
+
+        const { data, error: sbError } = await query;
+
+        if (!isMounted) return; // component unmounted — discard result
+        if (sbError) throw sbError;
+        setProducts(data ?? []);
+      } catch (err) {
+        if (!isMounted) return;
+        // Ignore abort errors caused by React StrictMode or fast navigation
+        if (err?.name === "AbortError" || err?.message?.includes("AbortError")) return;
+        console.error("Shop fetch error:", err);
+        setError(err.message ?? "Something went wrong loading products.");
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    }
+
+    safeFetch();
+
+    return () => { isMounted = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeCategory, sort]);
 
