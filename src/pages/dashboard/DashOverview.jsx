@@ -9,6 +9,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 import { useAuthStore } from "../../store/authStore";
 import { useCartStore } from "../../store/cartStore";
+import SupabaseDiag from "../../components/SupabaseDiag";
 
 const STATUS_COLOR = {
   pending:          "bg-amber-100 text-amber-800",
@@ -26,7 +27,7 @@ const STAGE_PROGRESS = {
   pending:20, confirmed:40, preparing:60, out_for_delivery:80, delivered:100, cancelled:0,
 };
 const CAT_EMOJI = {
-  broiler_live:"🐓", kienyeji_live:"🐔", slaughtered:"🥩", fried_pieces:"🍗", fried_whole:"🍖",
+  slaughtered:"🥩", fried_pieces:"🍗", fried_whole:"🍖",
 };
 
 function StatCard({ label, value, icon, color }) {
@@ -75,42 +76,53 @@ export default function DashOverview({ onTabChange }) {
 
     try {
       console.log("📊 Loading dashboard data for user:", user.id);
-      
-      // Simplified: just fetch by user_id for now
+
+      // ── Fetch orders — gracefully handle RLS or missing table ──
+      let all = [];
       const { data: orders, error: ordersError } = await supabase
         .from("orders")
         .select("id, total, status, items, created_at, phone")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
-      
+
       if (ordersError) {
-        console.error("Orders query error:", ordersError);
-        throw new Error(`Failed to fetch orders: ${ordersError.message}`);
+        // RLS policy missing or table has no user_id column yet — not fatal,
+        // just show the dashboard empty so the user can still browse.
+        console.warn("Orders query issue (check RLS policy):", ordersError.message);
+        // Don't throw — fall through with empty orders
+      } else {
+        all = orders ?? [];
       }
-      console.log(`✓ Fetched ${orders?.length ?? 0} orders`);
 
-      const all = orders ?? [];
-      const active = all.filter(o => !["delivered","cancelled"].includes(o.status));
+      console.log(`✓ Fetched ${all.length} orders`);
+
+      const active    = all.filter(o => !["delivered","cancelled"].includes(o.status));
       const delivered = all.filter(o => o.status === "delivered");
-      const totalSpent = all.filter(o => o.status !== "cancelled").reduce((s,o) => s+(o.total??0), 0);
+      const totalSpent = all
+        .filter(o => o.status !== "cancelled")
+        .reduce((s, o) => s + (o.total ?? 0), 0);
 
-      // Try to fetch reviews, but don't fail if table doesn't exist
+      // ── Fetch reviews — skip silently if table doesn't exist ──
       let needsReview = [];
       try {
-        const { data: reviews } = await supabase
+        const { data: reviews, error: revErr } = await supabase
           .from("reviews")
           .select("order_id")
           .eq("user_id", user.id);
-        const reviewedIds = new Set((reviews ?? []).map(r => r.order_id));
-        needsReview = delivered.filter(o => !reviewedIds.has(o.id)).slice(0, 3);
+        if (!revErr) {
+          const reviewedIds = new Set((reviews ?? []).map(r => r.order_id));
+          needsReview = delivered.filter(o => !reviewedIds.has(o.id)).slice(0, 3);
+        } else {
+          needsReview = delivered.slice(0, 3);
+        }
       } catch (err) {
         console.log("Reviews fetch skipped:", err.message);
         needsReview = delivered.slice(0, 3);
       }
 
       setStats({
-        total: all.length,
-        spent: totalSpent,
+        total:  all.length,
+        spent:  totalSpent,
         points: profile?.loyalty_points ?? 0,
       });
       setActiveOrders(active.slice(0, 3));
@@ -120,7 +132,8 @@ export default function DashOverview({ onTabChange }) {
 
     } catch (err) {
       console.error("❌ Dashboard error:", err);
-      setLoadError("Could not load your data. Check your internet connection and try again.");
+      // Network / unexpected error
+      setLoadError("Could not connect to the server. Check your internet connection and try again.");
       clearTimeout(timeoutId);
     } finally {
       setLoading(false);
@@ -153,15 +166,39 @@ export default function DashOverview({ onTabChange }) {
 
   // ── Error state ──
   if (loadError) return (
-    <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-center">
-      <div className="text-3xl mb-2">⚠️</div>
-      <p className="text-sm font-bold text-red-800 mb-1">Could not load dashboard</p>
-      <p className="text-xs text-red-600 mb-4">{loadError}</p>
-      <button onClick={load} className="px-4 py-2 bg-[#C8290A] text-white text-sm font-semibold rounded-xl hover:bg-[#a82008] transition-colors">
-        Try again
-      </button>
+    <div className="flex flex-col gap-4">
+      <SupabaseDiag context="the dashboard" />
+      <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-center">
+        <div className="text-3xl mb-2">⚠️</div>
+        <p className="text-sm font-bold text-red-800 mb-1">Could not load dashboard</p>
+        <p className="text-xs text-red-600 mb-4">{loadError}</p>
+        <button onClick={load} className="px-4 py-2 bg-[#C8290A] text-white text-sm font-semibold rounded-xl hover:bg-[#a82008] transition-colors">
+          Try again
+        </button>
+      </div>
+      {/* SQL fix helper */}
+      <div className="bg-gray-900 rounded-2xl p-5">
+        <p className="text-xs font-bold text-white mb-1">🔧 Fix: Run this SQL in Supabase</p>
+        <p className="text-xs text-gray-400 mb-3">Go to Supabase → SQL Editor → paste and Run</p>
+        <pre className="text-[10px] text-green-400 bg-black rounded-xl p-3 overflow-x-auto leading-relaxed whitespace-pre-wrap">{`-- Enable RLS and allow users to read their own orders
+alter table orders enable row level security;
+
+create policy "Users can view own orders"
+  on orders for select
+  using (auth.uid() = user_id);
+
+-- Add user_id if missing
+alter table orders
+  add column if not exists user_id uuid references auth.users(id);
+
+-- Allow users to insert orders
+create policy "Users can insert own orders"
+  on orders for insert
+  with check (auth.uid() = user_id);`}</pre>
+      </div>
     </div>
   );
+
 
   return (
     <div className="flex flex-col gap-5">

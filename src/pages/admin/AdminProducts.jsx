@@ -7,22 +7,20 @@ import { supabase } from "../../lib/supabase";
 
 /* ── Constants ── */
 const CATEGORIES = [
-  { value: "broiler_live",  label: "Live Broiler" },
-  { value: "kienyeji_live", label: "Live Kienyeji" },
   { value: "slaughtered",   label: "Slaughtered" },
   { value: "fried_pieces",  label: "Fried Pieces" },
   { value: "fried_whole",   label: "Whole Fried" },
 ];
 
 const CAT_EMOJI = {
-  broiler_live: "🐓", kienyeji_live: "🐔", slaughtered: "🥩",
+  slaughtered: "🥩",
   fried_pieces: "🍗", fried_whole: "🍖",
 };
 
 const STORAGE_BUCKET = "product-images"; // must match bucket name in Supabase
 
 const EMPTY_FORM = {
-  name: "", description: "", price: "", category: "broiler_live",
+  name: "", description: "", price: "", category: "slaughtered",
   weight_kg: "", in_stock: true,
 };
 

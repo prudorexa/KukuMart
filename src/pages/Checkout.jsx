@@ -416,7 +416,7 @@ function Step2Payment({ paymentMethod, setPaymentMethod, phone }) {
   );
 }
 
-const CAT_EMOJI = { broiler_live:"🐓", kienyeji_live:"🐔", slaughtered:"🥩", fried_pieces:"🍗", fried_whole:"🍖" };
+const CAT_EMOJI = { slaughtered:"🥩", fried_pieces:"🍗", fried_whole:"🍖" };
 
 function Step3Review({ items, name, phone, notes, location, manualAddress, paymentMethod, subtotal, deliveryFee, grandTotal, submitError }) {
   return (

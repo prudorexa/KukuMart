@@ -1,10 +1,17 @@
 // src/pages/auth/ResetPassword.jsx
-// Handles the link from "Reset Your Password" email.
-// Supabase redirects to: /auth/reset-password#access_token=...
-// We extract the token, let the user set a new password, then sign them in.
+//
+// Supabase sends password reset links in TWO possible formats:
+//
+//  A) PKCE flow (new):  /auth/reset-password?code=XXXX
+//     → call exchangeCodeForSession(code)
+//
+//  B) Implicit flow (old): /auth/reset-password#access_token=XXX&type=recovery
+//     → Supabase SDK auto-exchanges via onAuthStateChange PASSWORD_RECOVERY
+//
+// We handle BOTH so it works regardless of which Supabase setting is active.
 
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 
 function Logo() {
@@ -25,51 +32,157 @@ function Logo() {
 
 export default function ResetPassword() {
   const navigate = useNavigate();
-  const [password,  setPassword]  = useState("");
-  const [confirm,   setConfirm]   = useState("");
-  const [loading,   setLoading]   = useState(false);
-  const [done,      setDone]      = useState(false);
-  const [error,     setError]     = useState("");
-  const [tokenReady,setTokenReady]= useState(false);
+  const [searchParams] = useSearchParams();
 
-  // Supabase puts the recovery token in the URL hash — it handles it automatically
-  // via onAuthStateChange. We just need to wait for the PASSWORD_RECOVERY event.
+  const [password,   setPassword]   = useState("");
+  const [confirm,    setConfirm]    = useState("");
+  const [loading,    setLoading]    = useState(false);
+  const [done,       setDone]       = useState(false);
+  const [error,      setError]      = useState("");
+  const [tokenReady, setTokenReady] = useState(false);
+  const [linkError,  setLinkError]  = useState("");
+
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY") {
+    let cancelled = false;
+
+    async function bootstrap() {
+
+      // ── Path A: PKCE — ?code=XXX in the URL ─────────────────────
+      const code = searchParams.get("code");
+      if (code) {
+        console.log("Reset: found PKCE code, exchanging…");
+        const { error: exchErr } = await supabase.auth.exchangeCodeForSession(code);
+        if (cancelled) return;
+        if (exchErr) {
+          console.error("PKCE exchange failed:", exchErr.message);
+          setLinkError("This reset link has expired or already been used. Please request a new one.");
+        } else {
+          setTokenReady(true);
+        }
+        return;
+      }
+
+      // ── Path B: Implicit — #access_token=... in the hash ────────
+      // Check hash immediately in case it's already been parsed
+      const hash = window.location.hash;
+      const isRecoveryHash =
+        hash.includes("type=recovery") ||
+        hash.includes("access_token");
+
+      if (isRecoveryHash) {
+        console.log("Reset: found recovery hash token, waiting for SDK…");
+      }
+
+      // onAuthStateChange fires PASSWORD_RECOVERY when the SDK parses the hash
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(
+        async (event, session) => {
+          console.log("Reset: auth event =", event);
+          if (cancelled) return;
+          if (event === "PASSWORD_RECOVERY") {
+            setTokenReady(true);
+          }
+          // SIGNED_IN after a recovery link also means we're ready
+          if (event === "SIGNED_IN" && session) {
+            setTokenReady(true);
+          }
+        }
+      );
+
+      // Also check if there's already a valid session (user refreshed the page)
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!cancelled && session) {
+        console.log("Reset: existing session found, ready.");
         setTokenReady(true);
       }
-    });
 
-    // Also check if there's already an active session from the link
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) setTokenReady(true);
-    });
+      // Timeout — if neither path fires after 12s, show link-expired error
+      const timer = setTimeout(() => {
+        if (!cancelled && !tokenReady) {
+          console.warn("Reset: no token received after 12s");
+          setLinkError(
+            "Could not verify your reset link. It may have expired. " +
+            "Please request a new password reset email."
+          );
+        }
+      }, 12000);
 
-    return () => subscription.unsubscribe();
-  }, []);
+      return () => {
+        clearTimeout(timer);
+        subscription.unsubscribe();
+      };
+    }
+
+    const cleanup = bootstrap();
+    return () => {
+      cancelled = true;
+      cleanup?.then?.(fn => fn?.());
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleSubmit(e) {
     e.preventDefault();
     if (password.length < 6) { setError("Password must be at least 6 characters."); return; }
-    if (password !== confirm) { setError("Passwords don't match."); return; }
+    if (password !== confirm)  { setError("Passwords don't match."); return; }
 
-    setLoading(true); setError("");
+    setLoading(true);
+    setError("");
 
-    const { error: sbErr } = await supabase.auth.updateUser({ password });
-    setLoading(false);
+    try {
+      const { error: sbErr } = await supabase.auth.updateUser({ password });
+      setLoading(false);
+      if (sbErr) {
+        if (sbErr.message?.toLowerCase().includes("network") || sbErr.message?.toLowerCase().includes("fetch")) {
+          setError("Network error — cannot reach the server. Check your internet connection or Supabase project status.");
+        } else if (sbErr.message?.toLowerCase().includes("session")) {
+          setError("Your session expired. Please request a new password reset email and try again.");
+        } else {
+          setError(sbErr.message);
+        }
+        return;
+      }
+      setDone(true);
+      setTimeout(() => navigate("/dashboard", { replace: true }), 2500);
+    } catch (err) {
+      setLoading(false);
+      setError("Network error — could not save password. Check your internet connection.");
+    }
+  }
 
-    if (sbErr) { setError(sbErr.message); return; }
-
-    setDone(true);
-    setTimeout(() => navigate("/dashboard"), 2500);
+  // ── Expired / invalid link screen ───────────────────────────────
+  if (linkError) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-4 py-12">
+        <div className="w-full max-w-sm">
+          <div className="flex flex-col items-center mb-8">
+            <Logo/>
+            <h1 className="mt-4 text-2xl font-bold text-gray-900">
+              Kuku<span className="text-[#C8290A]">Mart</span>
+            </h1>
+          </div>
+          <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm text-center">
+            <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#DC2626" strokeWidth="2.5" strokeLinecap="round">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+            </div>
+            <h3 className="text-base font-bold text-gray-900 mb-2">Link expired</h3>
+            <p className="text-sm text-gray-500 mb-5">{linkError}</p>
+            <button
+              onClick={() => navigate("/login")}
+              className="w-full bg-[#C8290A] hover:bg-[#a82008] text-white font-semibold text-sm py-3 rounded-xl transition-colors"
+            >
+              Back to login → request new link
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-4 py-12">
       <div className="w-full max-w-sm">
 
-        {/* Brand */}
         <div className="flex flex-col items-center mb-8">
           <Logo/>
           <h1 className="mt-4 text-2xl font-bold text-gray-900">
@@ -80,7 +193,7 @@ export default function ResetPassword() {
 
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
           {done ? (
-            // Success state
+            // ── Success ──
             <div className="flex flex-col items-center gap-4 py-4 text-center">
               <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center">
                 <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#16A34A" strokeWidth="2.5" strokeLinecap="round">
@@ -88,23 +201,32 @@ export default function ResetPassword() {
                 </svg>
               </div>
               <h3 className="text-base font-bold text-gray-900">Password updated!</h3>
-              <p className="text-sm text-gray-500">Your password has been changed successfully. Taking you to your dashboard…</p>
+              <p className="text-sm text-gray-500">Your password has been changed. Taking you to your dashboard…</p>
             </div>
+
           ) : !tokenReady ? (
-            // Waiting for token
+            // ── Waiting for token ──
             <div className="flex flex-col items-center gap-4 py-6 text-center">
               <div className="w-8 h-8 border-2 border-[#C8290A] border-t-transparent rounded-full animate-spin"/>
               <p className="text-sm text-gray-500">Verifying your reset link…</p>
-              <p className="text-xs text-gray-400">
-                If this takes too long,{" "}
-                <button onClick={() => navigate("/login")} className="text-[#C8290A] hover:underline font-medium">
-                  go back to login
-                </button>
+              <p className="text-xs text-gray-400 leading-relaxed max-w-[220px]">
+                Make sure you opened the link in the same browser. Reset links expire after 1 hour.
               </p>
+              <button
+                onClick={() => navigate("/login")}
+                className="text-xs font-semibold text-[#C8290A] hover:underline"
+              >
+                Request a new link instead →
+              </button>
             </div>
+
           ) : (
-            // Password form
+            // ── New password form ──
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+              <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-2.5">
+                <p className="text-xs text-green-700 font-medium">✓ Link verified — enter your new password below</p>
+              </div>
+
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">New password</label>
                 <input

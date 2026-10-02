@@ -15,22 +15,22 @@ const WA_URL = `https://wa.me/${WA_NUMBER}?text=${WA_MESSAGE}`;
 ───────────────────────────────────────── */
 const CATEGORIES = [
   {
-    id: "broiler_live",
-    title: "Live Broiler",
+    id: "whole_chicken",
+    title: "Whole Chicken",
     subtitle: "Ready for purchase — healthy & well-fed",
-    emoji: "🐓",
-    tag: "Live",
-    tagColor: "bg-green-100 text-green-800",
-    price: "From KSh 800",
+    emoji: "🐔",
+    tag: "Full chicken",
+    tagColor: "bg-green-100 text-green-400",
+    price: "From KSh 500",
   },
   {
-    id: "kienyeji_live",
-    title: "Live Kienyeji",
+    id: "marinated_chicken",
+    title: "marinated Chicken",
     subtitle: "Free-range, naturally raised local chicken",
-    emoji: "🐔",
-    tag: "Live",
-    tagColor: "bg-green-100 text-green-800",
-    price: "From KSh 1,500",
+    emoji: "🍲",
+    tag: "marinated",
+    tagColor: "bg-green-100 text-green-400",
+    price: "From KSh 600",
   },
   {
     id: "slaughtered",
@@ -118,7 +118,7 @@ const REVIEWS = [
     name: "Amina W.",
     area: "Westlands",
     stars: 5,
-    text: "Best kienyeji chicken in Nairobi, hands down. Delivery was on time and the chicken was so fresh. Will definitely order again!",
+    text: "Best chicken in Nairobi, hands down. Delivery was on time and the chicken was so fresh. Will definitely order again!",
     initial: "A",
   },
   {
@@ -214,7 +214,7 @@ function Hero() {
             </h1>
 
             <p className="text-white/70 text-lg leading-relaxed mb-8 max-w-md mx-auto lg:mx-0">
-              Live broilers, kienyeji, slaughtered &amp; fried — straight from
+              Freshly slaughtered &amp; fried chicken — straight from
               the farm to your kitchen anywhere in Nairobi.
             </p>
 
@@ -507,9 +507,9 @@ function WhyUs() {
       emoji: "🌿",
     },
     {
-      title: "Broilers & kienyeji",
-      desc: "We carry both broiler and free-range kienyeji — live or slaughtered, your choice.",
-      emoji: "🐔",
+      title: "Slaughtered & fried",
+      desc: "Get freshly slaughtered chicken ready to cook, or fully fried and seasoned pieces ready to eat.",
+      emoji: "🥩",
     },
     {
       title: "Ready-to-eat fried chicken",
@@ -710,8 +710,8 @@ function FAQ() {
       a: "We source directly from farms every morning. What you receive was alive or freshly slaughtered that same day.",
     },
     {
-      q: "Can I order live chickens?",
-      a: "Absolutely! We sell both live broilers and live kienyeji chickens. You can also request slaughtering before delivery.",
+      q: "Can I order slaughtered chicken?",
+      a: "Yes! We offer freshly slaughtered chicken, fried pieces, and whole fried chicken. All orders are prepared fresh on the day of delivery.",
     },
     {
       q: "What is the minimum order?",

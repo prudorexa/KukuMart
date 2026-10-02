@@ -6,6 +6,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import ProductCard from "../components/ProductCard";
+import SupabaseDiag from "../components/SupabaseDiag";
 import { useCartStore, selectCartCount, selectCartTotal } from "../store/cartStore";
 
 /* ─────────────────────────────────────
@@ -13,8 +14,6 @@ import { useCartStore, selectCartCount, selectCartTotal } from "../store/cartSto
 ───────────────────────────────────── */
 const CATEGORIES = [
   { id: "all",           label: "All chicken",      emoji: "🐔" },
-  { id: "broiler_live",  label: "Live broiler",      emoji: "🐓" },
-  { id: "kienyeji_live", label: "Live kienyeji",     emoji: "🐔" },
   { id: "slaughtered",   label: "Slaughtered",       emoji: "🥩" },
   { id: "fried_pieces",  label: "Fried pieces",      emoji: "🍗" },
   { id: "fried_whole",   label: "Whole fried",       emoji: "🍖" },
@@ -72,7 +71,8 @@ function EmptyState({ search, category, onClear }) {
 ───────────────────────────────────── */
 function ErrorState({ message, onRetry }) {
   return (
-    <div className="col-span-full flex flex-col items-center justify-center py-20 gap-4 text-center">
+    <div className="col-span-full flex flex-col items-center justify-center py-12 gap-4 text-center">
+      <SupabaseDiag context="the shop" />
       <span className="text-5xl">⚠️</span>
       <h3 className="text-lg font-bold text-gray-900">Couldn't load products</h3>
       <p className="text-sm text-gray-500 max-w-xs">{message}</p>
@@ -82,6 +82,17 @@ function ErrorState({ message, onRetry }) {
       >
         Try again
       </button>
+      {/* Supabase fix hint */}
+      <div className="mt-4 bg-gray-900 rounded-2xl p-4 text-left max-w-sm w-full">
+        <p className="text-xs font-bold text-white mb-1">🔧 Fix: Run this SQL in Supabase</p>
+        <p className="text-xs text-gray-400 mb-2">Supabase → SQL Editor → Run</p>
+        <pre className="text-[10px] text-green-400 bg-black rounded-xl p-3 overflow-x-auto whitespace-pre-wrap leading-relaxed">{`-- Allow anyone to read products
+alter table products enable row level security;
+
+create policy "Anyone can view products"
+  on products for select
+  using (true);`}</pre>
+      </div>
     </div>
   );
 }
@@ -202,6 +213,15 @@ export default function Shop() {
     async function safeFetch() {
       setLoading(true);
       setError(null);
+
+      // Safety timeout — if Supabase doesn't respond in 8s, show error
+      const timeoutId = setTimeout(() => {
+        if (isMounted) {
+          setError("Request timed out. Check your internet connection or Supabase project status.");
+          setLoading(false);
+        }
+      }, 8000);
+
       try {
         const sortMap = {
           created_at_desc: { col: "created_at", asc: false },
@@ -222,12 +242,13 @@ export default function Shop() {
 
         const { data, error: sbError } = await query;
 
-        if (!isMounted) return; // component unmounted — discard result
+        clearTimeout(timeoutId);
+        if (!isMounted) return;
         if (sbError) throw sbError;
         setProducts(data ?? []);
       } catch (err) {
+        clearTimeout(timeoutId);
         if (!isMounted) return;
-        // Ignore abort errors caused by React StrictMode or fast navigation
         if (err?.name === "AbortError" || err?.message?.includes("AbortError")) return;
         console.error("Shop fetch error:", err);
         setError(err.message ?? "Something went wrong loading products.");

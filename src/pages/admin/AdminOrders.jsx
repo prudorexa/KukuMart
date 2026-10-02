@@ -18,7 +18,7 @@ const STATUS_STYLES = {
 };
 
 const PAYMENT_LABELS = { mpesa: "M-Pesa", card: "Card", cash: "Cash on delivery" };
-const CAT_EMOJI = { broiler_live:"🐓", kienyeji_live:"🐔", slaughtered:"🥩", fried_pieces:"🍗", fried_whole:"🍖" };
+const CAT_EMOJI = { slaughtered:"🥩", fried_pieces:"🍗", fried_whole:"🍖" };
 
 /* ── Status badge ── */
 function StatusBadge({ status }) {

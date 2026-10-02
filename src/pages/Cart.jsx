@@ -12,8 +12,8 @@ import { useAuthStore, selectIsLoggedIn } from "../store/authStore";
 
 /* ── Category emoji lookup ── */
 const CAT_EMOJI = {
-  broiler_live:  "🐓",
-  kienyeji_live: "🐔",
+  whole_chicken: "🐔",
+  marinated:     "🍲",
   slaughtered:   "🥩",
   fried_pieces:  "🍗",
   fried_whole:   "🍖",

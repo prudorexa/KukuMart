@@ -15,7 +15,7 @@ const STATUS_COLOR = {
   delivered:"bg-green-100 text-green-700", cancelled:"bg-red-100 text-red-700",
 };
 const STAGE_PROGRESS = { pending:20, confirmed:40, preparing:60, out_for_delivery:80, delivered:100, cancelled:0 };
-const CAT_EMOJI = { broiler_live:"🐓", kienyeji_live:"🐔", slaughtered:"🥩", fried_pieces:"🍗", fried_whole:"🍖" };
+const CAT_EMOJI = { slaughtered:"🥩", fried_pieces:"🍗", fried_whole:"🍖" };
 const PAYMENT_LABELS = { mpesa:"M-Pesa", card:"Card / Bank", cash:"Cash on delivery" };
 
 function formatDate(iso) {

@@ -15,7 +15,7 @@ const VALUES = [
   { emoji: "🌿", title: "Farm fresh daily", desc: "We source directly from trusted farms every single morning. What you receive was alive or freshly slaughtered that same day." },
   { emoji: "❤️", title: "Family business", desc: "KukuMart is a family business. When you order from us, you're supporting a real Nairobi family — not a corporation." },
   { emoji: "🛵", title: "Fast delivery", desc: "We deliver across all of Nairobi. Order before 2 PM and we get your chicken to you same day." },
-  { emoji: "🐔", title: "All types, one place", desc: "Live broilers, live kienyeji, freshly slaughtered, fried pieces — we have every type of chicken you need." },
+  { emoji: "🥩", title: "All types, one place", desc: "Freshly slaughtered chicken, seasoned fried pieces, and whole fried chicken — we have every type you need." },
   { emoji: "📦", title: "Bulk welcome", desc: "Hotels, restaurants, weddings — we handle bulk orders of any size. Just give us a call or WhatsApp." },
 ];
 

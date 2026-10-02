@@ -66,6 +66,7 @@ export default function Dashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab]       = useState(searchParams.get("tab") ?? "overview");
 
+  const user        = useAuthStore((s) => s.user);
   const displayName = useAuthStore(selectDisplayName);
   const initial     = useAuthStore(selectInitial);
   const profile     = useAuthStore((s) => s.profile);
@@ -77,8 +78,6 @@ export default function Dashboard() {
       setActiveTab(urlTab);
     }
   }, [searchParams]);
-
-  console.log("📊 Dashboard: user=", user?.id, "profile=", profile?.id, "displayName=", displayName);
 
   function changeTab(id) {
     setActiveTab(id);

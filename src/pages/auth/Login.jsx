@@ -170,15 +170,23 @@ function EmailForm({ onSuccess }) {
           <label className="text-sm font-semibold text-gray-700">Password</label>
           {mode === "signin" && (
             <button type="button" onClick={async () => {
-              if (!email.trim()) { setError("Enter your email above first."); return; }
+              if (!email.trim()) { setError("Enter your email above first, then click Forgot password."); return; }
               setLoading(true);
+              setError(""); setSuccess("");
+              const redirectUrl = `${window.location.origin}/auth/reset-password`;
               const { error: e } = await supabase.auth.resetPasswordForEmail(
                 email.trim().toLowerCase(),
-                { redirectTo: `${window.location.origin}/auth/reset-password` }
+                { redirectTo: redirectUrl }
               );
               setLoading(false);
-              if (e) setError(e.message);
-              else setSuccess("Password reset link sent to your email!");
+              if (e) {
+                setError(`Could not send reset email: ${e.message}`);
+              } else {
+                setSuccess(
+                  `Reset link sent to ${email.trim().toLowerCase()}! ` +
+                  `Check your inbox (and spam folder). Click the link in the email to set a new password.`
+                );
+              }
             }} className="text-xs text-[#C8290A] hover:underline font-medium">
               Forgot password?
             </button>

@@ -2,16 +2,34 @@
 // Reusable product card — used on Shop page and can be used on Homepage featured section.
 
 import { useState } from "react";
+import { supabase } from "../lib/supabase";
 import { useCartStore, selectIsInCart, selectItemQuantity } from "../store/cartStore";
 
 // Category display config
 const CATEGORY_CONFIG = {
-  broiler_live:   { label: "Live broiler",   emoji: "🐓", tagClass: "bg-green-100 text-green-800" },
-  kienyeji_live:  { label: "Live kienyeji",  emoji: "🐔", tagClass: "bg-green-100 text-green-800" },
-  slaughtered:    { label: "Ready to cook",  emoji: "🥩", tagClass: "bg-orange-100 text-orange-800" },
-  fried_pieces:   { label: "Ready to eat",   emoji: "🍗", tagClass: "bg-red-100 text-red-800" },
-  fried_whole:    { label: "Ready to eat",   emoji: "🍖", tagClass: "bg-red-100 text-red-800" },
+  whole_chicken: { label: "Whole Chicken",   emoji: "🐓", tagClass: "bg-green-100 text-green-800" },
+  marinated:     { label: "Marinated",       emoji: "🐔", tagClass: "bg-green-100 text-green-800" },
+  slaughtered:   { label: "Ready to cook",   emoji: "🥩", tagClass: "bg-orange-100 text-orange-800" },
+  fried_pieces:  { label: "Fried pieces",    emoji: "🍗", tagClass: "bg-red-100 text-red-800" },
+  fried_whole:   { label: "Whole fried",     emoji: "🍖", tagClass: "bg-red-100 text-red-800" },
 };
+
+/**
+ * Resolve image_url to a displayable src.
+ * - If it's already a full URL (http/https), use it directly.
+ * - If it's a storage path like "product-images/abc.jpg", build the public URL.
+ * - Otherwise return null so the emoji placeholder shows.
+ */
+function resolveImageUrl(raw) {
+  if (!raw) return null;
+  if (raw.startsWith("http://") || raw.startsWith("https://")) return raw;
+  // Treat as a Supabase Storage path: "bucket/path" or just "path"
+  const parts = raw.split("/");
+  const bucket = parts.length > 1 ? parts[0] : "product-images";
+  const path   = parts.length > 1 ? parts.slice(1).join("/") : raw;
+  const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+  return data?.publicUrl ?? null;
+}
 
 export default function ProductCard({ product }) {
   const { id, name, description, price, category, image_url, in_stock, weight_kg } = product;
@@ -23,6 +41,8 @@ export default function ProductCard({ product }) {
   const qty          = useCartStore(selectItemQuantity(id));
 
   const [imgError, setImgError] = useState(false);
+
+  const resolvedImage = resolveImageUrl(image_url);
 
   const config = CATEGORY_CONFIG[category] ?? {
     label: category,
@@ -43,9 +63,9 @@ export default function ProductCard({ product }) {
 
       {/* ── Product image ── */}
       <div className="relative w-full aspect-4/3 bg-gray-50 overflow-hidden">
-        {image_url && !imgError ? (
+        {resolvedImage && !imgError ? (
           <img
-            src={image_url}
+            src={resolvedImage}
             alt={name}
             onError={() => setImgError(true)}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"

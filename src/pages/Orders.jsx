@@ -102,8 +102,8 @@ const PAYMENT_LABELS = {
 };
 
 const CAT_EMOJI = {
-  broiler_live:  "🐓",
-  kienyeji_live: "🐔",
+  whole_chicken: "🐔",
+  marinated:     "🍲",
   slaughtered:   "🥩",
   fried_pieces:  "🍗",
   fried_whole:   "🍖",

@@ -8,8 +8,8 @@ const WA_MESSAGE = encodeURIComponent(
 const WA_URL = `https://wa.me/${WA_NUMBER}?text=${WA_MESSAGE}`;
 
 const SHOP_LINKS = [
-  { label: "Live broiler chicken", to: "/shop?cat=broiler_live" },
-  { label: "Live kienyeji chicken", to: "/shop?cat=kienyeji_live" },
+  { label: "Slaughtered chicken", to: "/shop?cat=slaughtered" },
+  { label: "Fried pieces", to: "/shop?cat=fried_pieces" },
   { label: "Slaughtered whole", to: "/shop?cat=slaughtered" },
   { label: "Fried pieces", to: "/shop?cat=fried_pieces" },
   { label: "Whole fried chicken", to: "/shop?cat=fried_whole" },
@@ -113,7 +113,7 @@ export default function Footer() {
             </Link>
 
             <p className="text-sm text-gray-500 leading-relaxed mb-5">
-              Nairobi's freshest chicken — broilers, kienyeji, slaughtered &amp; fried.
+              Nairobi's freshest chicken — slaughtered &amp; fried, delivered to your door.
               Farm-fresh quality, delivered to your door.
             </p>
 
