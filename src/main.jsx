@@ -7,9 +7,9 @@ import "./index.css";
 import { supabaseConfigError } from "./lib/supabase";
 
 class ErrorBoundary extends React.Component {
-  state = { error: null };
+  state = { error: null, stack: "" };
   static getDerivedStateFromError(error) { return { error }; }
-  componentDidCatch(error, info) { console.error("App crashed:", error, info); }
+  componentDidCatch(error, info) { console.error("App crashed:", error, info); this.setState({ stack: info?.componentStack || "" }); }
   render() {
     if (!this.state.error) return this.props.children;
     return (
@@ -17,7 +17,9 @@ class ErrorBoundary extends React.Component {
         <h2 style={{ color: "#C8290A" }}>Something went wrong</h2>
         <pre style={{ background: "#111827", color: "#86efac", padding: 16, borderRadius: 12, whiteSpace: "pre-wrap", fontSize: 12 }}>
           {String(this.state.error?.stack || this.state.error)}
+          {"\n\nComponent stack:" + this.state.stack}
         </pre>
+        <p style={{ fontSize: 12, color: "#6b7280" }}>Page: {location.pathname}</p>
         <button onClick={() => location.reload()} style={{ padding: "8px 16px", borderRadius: 8 }}>Reload</button>
       </div>
     );
