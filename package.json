@@ -31,7 +31,9 @@
     "globals": "^17.4.0",
     "vite": "^8.0.4"
   },
+  
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ]
+
 }
