@@ -41,16 +41,24 @@ export const useAuthStore = create((set, get) => ({
       } else {
         set({ initialized: true });
       }
+    }).catch((err) => {
+      console.error("🔐 Auth Store: getSession failed:", err);
+      set({ loading: false, initialized: true });
     });
 
-    // Subscribe to auth changes (login, logout, token refresh)
+    // Subscribe to auth changes (login, logout, token refresh).
+    // IMPORTANT: this callback must NOT be async and must NOT await any other
+    // supabase call. supabase-js runs it while holding the auth lock, and every
+    // query needs that same lock to read the session -> deadlock -> all requests
+    // (e.g. the shop's products query) hang until they time out.
+    // Fix: do the extra query on the next tick, outside the lock.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      (_event, session) => {
         const user = session?.user ?? null;
         console.log("🔐 Auth State Changed:", _event, user ? `User ${user.id}` : "No user");
         set({ user, loading: false, initialized: true });
         if (user) {
-          await get().fetchProfile(user.id);
+          setTimeout(() => { get().fetchProfile(user.id); }, 0);
         } else {
           set({ profile: null });
         }

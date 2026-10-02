@@ -6,29 +6,22 @@ import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? "";
-const PROJECT_ID   = SUPABASE_URL.split("//")[1]?.split(".")[0] ?? "unknown";
+const PROJECT_ID = SUPABASE_URL.split("//")[1]?.split(".")[0] ?? "unknown";
 
 export default function SupabaseDiag({ context = "this page" }) {
-  const [status,  setStatus]  = useState("checking"); // checking | ok | fail
+  const [status, setStatus] = useState("checking"); // checking | ok | fail
   const [details, setDetails] = useState("");
 
   useEffect(() => {
     async function ping() {
       try {
         // Lightweight ping — just check if the API responds at all
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/`, {
-          headers: {
-            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-          },
+        const res = await fetch(`${SUPABASE_URL}/auth/v1/health`, {
+          headers: { apikey: import.meta.env.VITE_SUPABASE_ANON_KEY },
           signal: AbortSignal.timeout(6000),
         });
-        if (res.ok || res.status === 404) {
-          // 404 is fine — means the server is alive, just no route matched
-          setStatus("ok");
-        } else {
-          setStatus("fail");
-          setDetails(`Server responded with HTTP ${res.status}`);
-        }
+        if (res.ok) setStatus("ok");
+        else { setStatus("fail"); setDetails(`Server responded with HTTP ${res.status}`); }
       } catch (err) {
         setStatus("fail");
         if (err?.name === "TimeoutError") {
@@ -44,7 +37,7 @@ export default function SupabaseDiag({ context = "this page" }) {
   if (status === "checking") {
     return (
       <div className="flex items-center gap-2 text-xs text-gray-400 py-2">
-        <div className="w-3 h-3 border border-gray-300 border-t-transparent rounded-full animate-spin"/>
+        <div className="w-3 h-3 border border-gray-300 border-t-transparent rounded-full animate-spin" />
         Checking connection…
       </div>
     );
