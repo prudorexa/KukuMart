@@ -156,7 +156,7 @@ export default function DashProfile() {
               <p className="text-xs text-red-700 font-medium mb-1">⚠️ Could not save</p>
               <p className="text-xs text-red-600">{error}</p>
               <p className="text-xs text-red-500 mt-1.5">
-                Run the SQL migration in Supabase to fix this — see instructions below.
+                Please try again. If it keeps happening, contact us on WhatsApp.
               </p>
             </div>
           )}
@@ -211,49 +211,6 @@ export default function DashProfile() {
             </div>
           ))}
         </div>
-      </div>
-
-      {/* SQL migration helper */}
-      <div className="bg-gray-900 rounded-2xl p-5">
-        <p className="text-xs font-bold text-white mb-2">🔧 Supabase SQL — run this once to finish setup</p>
-        <p className="text-xs text-gray-400 mb-3">Paste this in Supabase → SQL Editor → Run. Fixes the "column not found" error.</p>
-        <pre className="text-[10px] text-green-400 bg-black rounded-xl p-3 overflow-x-auto leading-relaxed whitespace-pre-wrap">
-{`-- Add missing columns to profiles table
-alter table profiles
-  add column if not exists default_area       text,
-  add column if not exists notif_order_updates  boolean default true,
-  add column if not exists notif_loyalty_alerts boolean default true,
-  add column if not exists notif_promotions    boolean default false,
-  add column if not exists updated_at          timestamptz default now();
-
--- Auto-create profile when a new user signs up
-create or replace function handle_new_user()
-returns trigger language plpgsql security definer as $$
-begin
-  insert into public.profiles (id, email, full_name, loyalty_points, loyalty_tier, created_at)
-  values (
-    new.id,
-    new.email,
-    coalesce(new.raw_user_meta_data->>'full_name', ''),
-    0,
-    'bronze',
-    now()
-  )
-  on conflict (id) do nothing;
-  return new;
-end;
-$$;
-
--- Attach trigger (runs after every new signup)
-drop trigger if exists on_auth_user_created on auth.users;
-create trigger on_auth_user_created
-  after insert on auth.users
-  for each row execute procedure handle_new_user();
-
--- Add user_id column to orders if not exists
-alter table orders
-  add column if not exists user_id uuid references auth.users(id);`}
-        </pre>
       </div>
 
       {/* Sign out */}
