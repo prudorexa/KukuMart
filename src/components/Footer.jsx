@@ -20,6 +20,7 @@ const COMPANY_LINKS = [
   { label: "About us", to: "/about" },
   { label: "Contact us", to: "/contact" },
   { label: "Track my order", to: "/orders" },
+  { label: "Privacy policy", to: "/privacy" },
   { label: "Delivery zones", to: "/" },
 ];
 

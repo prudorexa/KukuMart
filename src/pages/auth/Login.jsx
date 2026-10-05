@@ -71,6 +71,30 @@ function SuccessBox({ msg }) {
    EMAIL / PASSWORD FORM
    Works immediately — no Supabase setup needed
 ═══════════════════════════════════════ */
+/* Turn raw Supabase error text into something a customer can act on. */
+function friendlyAuthError(message = "") {
+  const m = message.toLowerCase();
+  if (m.includes("rate limit") || m.includes("too many") || m.includes("429")) {
+    return "We're getting a lot of sign-ups right now. Please wait a few minutes and try again, or continue with the Google tab.";
+  }
+  if (m.includes("already registered") || m.includes("already been registered")) {
+    return "That email already has an account. Switch to Sign in, or use Forgot password.";
+  }
+  if (m.includes("invalid login")) {
+    return "Wrong email or password. Try again, or create a new account.";
+  }
+  if (m.includes("email not confirmed")) {
+    return "Please confirm your email first — check your inbox (and spam) for the confirmation link.";
+  }
+  if (m.includes("password") && m.includes("characters")) {
+    return "Password must be at least 6 characters.";
+  }
+  if (m.includes("failed to fetch") || m.includes("network")) {
+    return "Can't reach the server. Check your internet connection and try again.";
+  }
+  return message || "Something went wrong. Please try again.";
+}
+
 function EmailForm({ onSuccess }) {
   const [mode,    setMode]    = useState("signin"); // "signin" | "signup"
   const [email,   setEmail]   = useState("");
@@ -92,9 +116,13 @@ function EmailForm({ onSuccess }) {
       const { data, error: sbErr } = await supabase.auth.signUp({
         email: email.trim().toLowerCase(),
         password,
-        options: { data: { full_name: name.trim() } },
+        options: {
+          data: { full_name: name.trim() },
+          // Confirmation links must open THIS site, not the dashboard's default Site URL
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
       });
-      if (sbErr) { setError(sbErr.message); setLoading(false); return; }
+      if (sbErr) { setError(friendlyAuthError(sbErr.message)); setLoading(false); return; }
 
       // Create profile row
       if (data?.user) {
@@ -123,16 +151,7 @@ function EmailForm({ onSuccess }) {
         password,
       });
       setLoading(false);
-      if (sbErr) {
-        if (sbErr.message.includes("Invalid login")) {
-          setError("Wrong email or password. Try again, or create a new account.");
-        } else if (sbErr.message.includes("Email not confirmed")) {
-          setError("Please confirm your email first — check your inbox for the confirmation link.");
-        } else {
-          setError(sbErr.message);
-        }
-        return;
-      }
+      if (sbErr) { setError(friendlyAuthError(sbErr.message)); return; }
       onSuccess();
     }
   }
@@ -249,7 +268,7 @@ function PhoneForm({ onSuccess }) {
       if (sbErr.message.includes("Twilio") || sbErr.message.includes("provider") || sbErr.message.includes("Invalid parameter")) {
         setError("SMS is not set up yet. Please use Email sign-in above instead — it works right now!");
       } else {
-        setError(sbErr.message);
+        setError(friendlyAuthError(sbErr.message));
       }
       return;
     }
@@ -275,7 +294,7 @@ function PhoneForm({ onSuccess }) {
     setLoading(true);
     const { data, error: sbErr } = await supabase.auth.verifyOtp({ phone: normalise(phone.trim()), token: code, type: "sms" });
     setLoading(false);
-    if (sbErr) { setError(sbErr.message); setOtp(["","","","","",""]); document.getElementById("otp-0")?.focus(); return; }
+    if (sbErr) { setError(friendlyAuthError(sbErr.message)); setOtp(["","","","","",""]); document.getElementById("otp-0")?.focus(); return; }
     if (data?.user) {
       const { data: ex } = await supabase.from("profiles").select("id").eq("id",data.user.id).single();
       if (!ex) await supabase.from("profiles").insert([{ id:data.user.id, phone:normalise(phone.trim()), loyalty_points:0, loyalty_tier:"bronze", created_at:new Date().toISOString() }]);

@@ -14,6 +14,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Navbar         from "./components/Navbar";
 import Footer         from "./components/Footer";
 import WhatsAppButton from "./components/WhatsAppButton";
+import InstallBanner  from "./components/InstallBanner";
 
 import Home          from "./pages/Home";
 import Shop          from "./pages/Shop";
@@ -28,6 +29,7 @@ import Dashboard     from "./pages/Dashboard";
 import Login         from "./pages/auth/Login";
 import AuthCallback  from "./pages/auth/AuthCallback";
 import ResetPassword from "./pages/auth/Reset-Password";
+import Privacy       from "./pages/Privacy";
 import Test          from "./pages/Test";
 
 /* ── Shared layout for all public pages ── */
@@ -40,6 +42,7 @@ function PublicLayout() {
       </main>
       <Footer />
       <WhatsAppButton />
+      <InstallBanner />
     </div>
   );
 }
@@ -68,6 +71,7 @@ export default function App() {
             <Route path="/orders"        element={<Orders />} />
             <Route path="/about"         element={<About />} />
             <Route path="/contact"       element={<Contact />} />
+            <Route path="/privacy"       element={<Privacy />} />
             <Route path="/test"          element={<Test />} />
             <Route
               path="/dashboard"
