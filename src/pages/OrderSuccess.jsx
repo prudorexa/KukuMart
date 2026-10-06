@@ -4,7 +4,7 @@
 
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { supabase } from "../lib/supabase";
+import { fetchTrackedOrder } from "../lib/orderApi";
 
 const WA_NUMBER = "254700000000";
 
@@ -20,15 +20,10 @@ export default function OrderSuccess() {
     window.scrollTo(0, 0);
     if (!orderId) { setLoading(false); return; }
 
-    supabase
-      .from("orders")
-      .select("id, customer_name, total, delivery_fee, payment_type, status, location, created_at")
-      .eq("id", orderId)
-      .single()
-      .then(({ data }) => {
-        setOrder(data);
-        setLoading(false);
-      });
+    fetchTrackedOrder(orderId).then((data) => {
+      setOrder(data);
+      setLoading(false);
+    });
   }, [orderId]);
 
   const waText = encodeURIComponent(

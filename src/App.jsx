@@ -30,6 +30,7 @@ import Login         from "./pages/auth/Login";
 import AuthCallback  from "./pages/auth/AuthCallback";
 import ResetPassword from "./pages/auth/Reset-Password";
 import Privacy       from "./pages/Privacy";
+import Rate          from "./pages/Rate";
 import Test          from "./pages/Test";
 
 /* ── Shared layout for all public pages ── */
@@ -72,6 +73,7 @@ export default function App() {
             <Route path="/about"         element={<About />} />
             <Route path="/contact"       element={<Contact />} />
             <Route path="/privacy"       element={<Privacy />} />
+            <Route path="/rate"          element={<Rate />} />
             <Route path="/test"          element={<Test />} />
             <Route
               path="/dashboard"

@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 import { useAuthStore } from "../../store/authStore";
 import { useCartStore } from "../../store/cartStore";
+import { formatDateTimeLong } from "../../lib/time";
 
 const STATUS_LABEL = {
   pending:"Order received", confirmed:"Confirmed", preparing:"Being prepared",
@@ -19,7 +20,7 @@ const CAT_EMOJI = { slaughtered:"🥩", fried_pieces:"🍗", fried_whole:"🍖" 
 const PAYMENT_LABELS = { mpesa:"M-Pesa", card:"Card / Bank", cash:"Cash on delivery" };
 
 function formatDate(iso) {
-  return new Date(iso).toLocaleString("en",{ day:"numeric", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit" });
+  return formatDateTimeLong(iso);
 }
 
 function OrderDetail({ order, onClose, onReorder }) {

@@ -12,6 +12,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { fetchTrackedOrder } from "../lib/orderApi";
+import { timeAgo, formatDateTime } from "../lib/time";
 import { useCartStore } from "../store/cartStore";
 
 /* ─────────────────────────────────────
@@ -112,23 +114,8 @@ const CAT_EMOJI = {
 /* ─────────────────────────────────────
    HELPERS
 ───────────────────────────────────── */
-function timeAgo(isoString) {
-  const diff = Date.now() - new Date(isoString).getTime();
-  const mins  = Math.floor(diff / 60000);
-  const hours = Math.floor(diff / 3600000);
-  const days  = Math.floor(diff / 86400000);
-  if (mins  <  1) return "Just now";
-  if (mins  < 60) return `${mins} min${mins !== 1 ? "s" : ""} ago`;
-  if (hours < 24) return `${hours} hr${hours !== 1 ? "s" : ""} ago`;
-  return `${days} day${days !== 1 ? "s" : ""} ago`;
-}
-
-function formatDate(isoString) {
-  return new Date(isoString).toLocaleString("en-KE", {
-    weekday: "short", day: "numeric", month: "short",
-    hour: "2-digit", minute: "2-digit",
-  });
-}
+// timeAgo / formatDate come from src/lib/time.js (always Nairobi time)
+const formatDate = formatDateTime;
 
 /* ─────────────────────────────────────
    STATUS TRACKER COMPONENT
@@ -449,6 +436,15 @@ function OrderCard({ order, defaultOpen = false }) {
               Ask about this order
             </a>
 
+            {order.status === "delivered" && !order.reviewed && (
+              <Link
+                to={`/rate?id=${order.id}`}
+                className="flex-1 flex items-center justify-center gap-2 border-2 border-[#C8290A] text-[#C8290A] hover:bg-red-50 font-semibold text-sm py-2.5 rounded-xl transition-colors"
+              >
+                ⭐ Rate this order
+              </Link>
+            )}
+
             {order.status === "delivered" && items.length > 0 && (
               <button
                 onClick={handleReorder}
@@ -634,19 +630,15 @@ export default function Orders() {
   useEffect(() => {
     if (!autoId) return;
     setLoading(true);
-    supabase
-      .from("orders")
-      .select("*")
-      .eq("id", autoId)
-      .single()
-      .then(({ data, error }) => {
-        if (data && !error) {
+    fetchTrackedOrder(autoId)
+      .then((data) => {
+        if (data) {
           setOrders([data]);
           setSearched(true);
           setSearchedQuery(autoId);
         }
-        setLoading(false);
-      });
+      })
+      .finally(() => setLoading(false));
   }, [autoId]);
 
   // Auto-refresh every 30 seconds when viewing active orders
@@ -659,9 +651,9 @@ export default function Orders() {
 
     intervalRef.current = setInterval(async () => {
       // Refresh all currently shown orders
-      const ids = orders.map((o) => o.id);
-      const { data } = await supabase.from("orders").select("*").in("id", ids);
-      if (data) setOrders(data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
+      const fresh = await Promise.all(orders.map((o) => fetchTrackedOrder(o.id)));
+      const data = fresh.filter(Boolean);
+      if (data.length) setOrders(data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
     }, 30000);
 
     return () => clearInterval(intervalRef.current);

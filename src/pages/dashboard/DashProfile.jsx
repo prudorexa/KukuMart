@@ -6,6 +6,7 @@
 //  ✅ Shows clear error messages
 
 import { useState } from "react";
+import { formatMonthYear } from "../../lib/time";
 import { useAuthStore, selectInitial } from "../../store/authStore";
 import { supabase } from "../../lib/supabase";
 
@@ -202,7 +203,7 @@ export default function DashProfile() {
         <div className="space-y-2 text-sm">
           {[
             { label:"Email",        val: user?.email ?? "—" },
-            { label:"Member since", val: profile?.created_at ? new Date(profile.created_at).toLocaleDateString("en-KE",{month:"long",year:"numeric"}) : "—" },
+            { label:"Member since", val: profile?.created_at ? formatMonthYear(profile.created_at) : "—" },
             { label:"Loyalty tier", val: `${tierIcon} ${tierCap}` },
           ].map(({ label, val }) => (
             <div key={label} className="flex justify-between py-2 border-b border-gray-100 last:border-0">

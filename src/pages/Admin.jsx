@@ -6,9 +6,12 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
+import { startOfTodayNairobi, toDate, greeting, formatToday } from "../lib/time";
 import AdminLogin    from "./admin/AdminLogin";
 import AdminOrders   from "./admin/AdminOrders";
 import AdminProducts from "./admin/AdminProducts";
+import AdminReviews  from "./admin/AdminReviews";
+import AdminInsights from "./admin/AdminInsights";
 
 /* ── Stat card ── */
 function StatCard({ label, value, sub, icon, color }) {
@@ -29,31 +32,34 @@ function StatCard({ label, value, sub, icon, color }) {
 /* ── Dashboard stats (top of admin) ── */
 function DashboardStats() {
   const [stats, setStats] = useState({
-    totalOrders: 0, todayOrders: 0, pendingOrders: 0,
+    totalOrders: 0, todayOrders: 0, pendingOrders: 0, avgRating: null, ratingCount: 0,
     totalRevenue: 0, totalProducts: 0, outOfStock: 0,
   });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const today = startOfTodayNairobi(); // midnight in Nairobi, not the device clock
 
-      const [ordersRes, productsRes] = await Promise.all([
+      const [ordersRes, productsRes, reviewsRes] = await Promise.all([
         supabase.from("orders").select("id, total, status, created_at"),
         supabase.from("products").select("id, in_stock"),
+        supabase.from("reviews").select("rating"), // may not exist until the SQL is run
       ]);
+      const ratings = (reviewsRes.data ?? []).map((r) => r.rating).filter((n) => typeof n === "number");
 
       const orders   = ordersRes.data   ?? [];
       const products = productsRes.data ?? [];
 
       setStats({
         totalOrders:   orders.length,
-        todayOrders:   orders.filter((o) => new Date(o.created_at) >= today).length,
+        todayOrders:   orders.filter((o) => toDate(o.created_at) >= today).length,
         pendingOrders: orders.filter((o) => o.status === "pending").length,
         totalRevenue:  orders.filter((o) => o.status !== "cancelled").reduce((s, o) => s + (o.total ?? 0), 0),
         totalProducts: products.length,
         outOfStock:    products.filter((p) => !p.in_stock).length,
+        avgRating:     ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : null,
+        ratingCount:   ratings.length,
       });
       setLoading(false);
     }
@@ -62,8 +68,8 @@ function DashboardStats() {
 
   if (loading) {
     return (
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
-        {Array.from({ length: 6 }).map((_, i) => (
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-4 mb-6">
+        {Array.from({ length: 7 }).map((_, i) => (
           <div key={i} className="bg-white border border-gray-100 rounded-2xl p-5 animate-pulse">
             <div className="w-10 h-10 bg-gray-100 rounded-xl mb-3" />
             <div className="h-6 bg-gray-100 rounded w-16 mb-1" />
@@ -75,11 +81,12 @@ function DashboardStats() {
   }
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
+    <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-4 mb-6">
       <StatCard label="Total orders"    value={stats.totalOrders}                                               icon="📋" color="bg-blue-50" />
       <StatCard label="Today's orders"  value={stats.todayOrders}                                               icon="⚡" color="bg-amber-50" />
       <StatCard label="Pending"         value={stats.pendingOrders}  sub="Need attention"                       icon="⏳" color="bg-orange-50" />
       <StatCard label="Total revenue"   value={`KSh ${stats.totalRevenue.toLocaleString()}`}                    icon="💰" color="bg-green-50" />
+      <StatCard label="Customer rating" value={stats.avgRating ? `${stats.avgRating.toFixed(1)} ★` : "—"} sub={stats.ratingCount ? `${stats.ratingCount} rating${stats.ratingCount !== 1 ? "s" : ""}` : "No ratings yet"} icon="⭐" color="bg-yellow-50" />
       <StatCard label="Products"        value={stats.totalProducts}                                              icon="🐔" color="bg-purple-50" />
       <StatCard label="Out of stock"    value={stats.outOfStock}     sub={stats.outOfStock > 0 ? "Update soon" : "All good ✓"} icon="📦" color="bg-red-50" />
     </div>
@@ -100,12 +107,30 @@ const TABS = [
     ),
   },
   {
+    id: "insights",
+    label: "Insights",
+    icon: (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+        <line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" />
+      </svg>
+    ),
+  },
+  {
     id: "products",
     label: "Products",
     icon: (
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
         <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z" />
         <line x1="3" y1="6" x2="21" y2="6" /><path d="M16 10a4 4 0 01-8 0" />
+      </svg>
+    ),
+  },
+  {
+    id: "reviews",
+    label: "Reviews",
+    icon: (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
       </svg>
     ),
   },
@@ -180,9 +205,9 @@ export default function Admin() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Welcome + date */}
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">Good{new Date().getHours() < 12 ? " morning" : new Date().getHours() < 17 ? " afternoon" : " evening"} 👋</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{greeting()} 👋</h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            {new Date().toLocaleDateString("en-KE", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+            {formatToday()}
           </p>
         </div>
 
@@ -209,7 +234,9 @@ export default function Admin() {
 
         {/* Tab content */}
         {activeTab === "orders"   && <AdminOrders />}
+        {activeTab === "insights" && <AdminInsights />}
         {activeTab === "products" && <AdminProducts />}
+        {activeTab === "reviews"  && <AdminReviews />}
       </div>
     </div>
   );

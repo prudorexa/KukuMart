@@ -13,6 +13,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useCartStore, selectCartTotal } from "../store/cartStore";
 import { useAuthStore } from "../store/authStore";
+import { notifyOrder } from "../lib/notify";
 
 /* ─────────────────────────────────────
    KASARANI — KukuMart shop location
@@ -297,7 +298,7 @@ function ReviewRow({ label, value, bold, red }) {
                   React will NOT remount these between renders.
 ───────────────────────────────────── */
 
-function Step0Details({ name, setName, phone, setPhone, notes, setNotes, errors }) {
+function Step0Details({ name, setName, phone, setPhone, email, setEmail, notes, setNotes, errors }) {
   return (
     <div className="flex flex-col gap-5">
       <div>
@@ -323,6 +324,19 @@ function Step0Details({ name, setName, phone, setPhone, notes, setNotes, errors 
           }`} />
         <p className="text-xs text-gray-400 mt-1">Used for delivery coordination and M-Pesa payment.</p>
         {errors.phone && <p className="text-xs text-red-500 mt-1">{errors.phone}</p>}
+      </div>
+
+      <div>
+        <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+          Email <span className="text-xs font-normal text-gray-400">optional</span>
+        </label>
+        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+          placeholder="e.g. jane@gmail.com" autoComplete="email" inputMode="email"
+          className={`w-full px-4 py-3 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#C8290A]/20 focus:border-[#C8290A] transition-all ${
+            errors.email ? "border-red-400 bg-red-50" : "border-gray-200 bg-white"
+          }`} />
+        <p className="text-xs text-gray-400 mt-1">We'll email your receipt and a link to track your order.</p>
+        {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email}</p>}
       </div>
 
       <div>
@@ -480,6 +494,7 @@ export default function Checkout() {
   // Pre-filled from profile if logged in
   const [name,  setName]  = useState("");
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [notes, setNotes] = useState("");
 
   const [location,      setLocation]      = useState(null);
@@ -508,6 +523,7 @@ export default function Checkout() {
       else if (p.startsWith("254")) p = "0" + p.slice(3);
       setPhone(p);
     }
+    if (!email) setEmail(profile?.email || user?.email || "");
     if (profile?.default_area && !manualAddress) setManualAddress(profile.default_area);
 
     window.scrollTo(0, 0);
@@ -523,6 +539,8 @@ export default function Checkout() {
       if (!phone.trim()) e.phone = "Please enter your phone number.";
       else if (!/^(?:0|\+?254)[17]\d{8}$/.test(phone.replace(/[\s-]/g, "")))
         e.phone = "Enter a valid Kenyan number, e.g. 0712 345 678.";
+      if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()))
+        e.email = "That email doesn't look right — check it, or leave it blank.";
     }
     if (s === 1) {
       if (!location && !manualAddress.trim())
@@ -542,10 +560,11 @@ export default function Checkout() {
   async function placeOrder() {
     setLoading(true);
     try {
-      const { data, error } = await supabase.from("orders").insert([{
+      const row = {
         user_id:       user?.id ?? null,
         customer_name: name.trim(),
         phone:         phone.trim().replace(/[\s-]/g, ""),
+        email:         email.trim().toLowerCase() || null,
         location:      location?.address ?? manualAddress.trim(),
         lat:           location?.lat ?? null,
         lng:           location?.lng ?? null,
@@ -557,9 +576,19 @@ export default function Checkout() {
         paid:          false,
         status:        "pending",
         notes:         notes.trim() || null,
-      }]).select("id").single();
+      };
+
+      let { data, error } = await supabase.from("orders").insert([row]).select("id").single();
+
+      // If the database hasn't had the new `email` column added yet, don't lose the
+      // order — save it without the email (run supabase/tracking-and-reviews.sql).
+      if (error && /email/i.test(error.message ?? "")) {
+        const { email: _omit, ...withoutEmail } = row;
+        ({ data, error } = await supabase.from("orders").insert([withoutEmail]).select("id").single());
+      }
 
       if (error) throw error;
+      notifyOrder(data.id); // confirmation email (server skips it if no email on the order)
       clearCart();
       navigate(`/order-success?id=${data.id}&payment=${paymentMethod}`);
     } catch (err) {
@@ -599,7 +628,7 @@ export default function Checkout() {
         </div>
 
         <div className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6 mb-5">
-          {step === 0 && <Step0Details name={name} setName={setName} phone={phone} setPhone={setPhone} notes={notes} setNotes={setNotes} errors={errors} />}
+          {step === 0 && <Step0Details name={name} setName={setName} phone={phone} setPhone={setPhone} email={email} setEmail={setEmail} notes={notes} setNotes={setNotes} errors={errors} />}
           {step === 1 && <Step1Location location={location} setLocation={setLocation} manualAddress={manualAddress} setManualAddress={setManualAddress} errors={errors} />}
           {step === 2 && <Step2Payment paymentMethod={paymentMethod} setPaymentMethod={setPaymentMethod} phone={phone} />}
           {step === 3 && <Step3Review items={items} name={name} phone={phone} notes={notes} location={location} manualAddress={manualAddress} paymentMethod={paymentMethod} subtotal={subtotal} deliveryFee={deliveryFee} grandTotal={grandTotal} submitError={errors.submit} />}

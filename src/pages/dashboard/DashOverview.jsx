@@ -7,6 +7,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
+import { greeting } from "../../lib/time";
 import { useAuthStore } from "../../store/authStore";
 import { useCartStore } from "../../store/cartStore";
 import SupabaseDiag from "../../components/SupabaseDiag";
@@ -146,10 +147,7 @@ export default function DashOverview({ onTabChange }) {
     navigate("/cart");
   }
 
-  const greeting = (() => {
-    const h = new Date().getHours();
-    return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
-  })();
+  const greetingText = greeting(); // Nairobi time of day
 
   const firstName = (profile?.full_name || user?.email?.split("@")[0] || "there").split(" ")[0];
 
@@ -206,7 +204,7 @@ create policy "Users can insert own orders"
       {/* Welcome banner */}
       <div className="bg-[#C8290A] rounded-2xl px-6 py-5 relative overflow-hidden">
         <div className="absolute right-4 top-1/2 -translate-y-1/2 text-7xl opacity-10 pointer-events-none select-none">🐔</div>
-        <p className="text-red-200 text-xs font-medium mb-0.5 relative z-10">{greeting}</p>
+        <p className="text-red-200 text-xs font-medium mb-0.5 relative z-10">{greetingText}</p>
         <h2 className="text-white text-xl font-bold relative z-10">{firstName} 👋</h2>
         <p className="text-red-200 text-xs mt-1 relative z-10">
           {stats.total > 0

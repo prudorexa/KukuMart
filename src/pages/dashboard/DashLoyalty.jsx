@@ -6,6 +6,7 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
+import { formatShortDate } from "../../lib/time";
 import { useAuthStore } from "../../store/authStore";
 
 const TIERS = [
@@ -246,7 +247,7 @@ export default function DashLoyalty() {
                     {h.points > 0 ? "+" : ""}{h.points} pts
                   </span>
                   <span className="text-xs text-gray-400">
-                    {new Date(h.created_at).toLocaleDateString("en-KE", { day:"numeric", month:"short" })}
+                    {formatShortDate(h.created_at)}
                   </span>
                 </div>
               </div>

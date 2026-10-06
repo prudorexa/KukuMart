@@ -4,32 +4,14 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../../lib/supabase";
+import { notifyOrder } from "../../lib/notify";
+import { formatDateTimeLong, formatShortDate } from "../../lib/time";
+import { itemsOf, ratingsByOrder } from "../../lib/adminStats";
+import { STATUS_OPTIONS, STATUS_STYLES, PAYMENT_LABELS } from "./insights/orderMeta";
+import StatusBadge from "./insights/StatusBadge";
 
 /* ── Constants ── */
-const STATUS_OPTIONS = ["pending", "confirmed", "preparing", "out_for_delivery", "delivered", "cancelled"];
-
-const STATUS_STYLES = {
-  pending:          { bg: "bg-amber-100",  text: "text-amber-800",  dot: "bg-amber-500",  label: "Pending" },
-  confirmed:        { bg: "bg-blue-100",   text: "text-blue-800",   dot: "bg-blue-500",   label: "Confirmed" },
-  preparing:        { bg: "bg-purple-100", text: "text-purple-800", dot: "bg-purple-500", label: "Preparing" },
-  out_for_delivery: { bg: "bg-orange-100", text: "text-orange-800", dot: "bg-orange-500", label: "Out for delivery" },
-  delivered:        { bg: "bg-green-100",  text: "text-green-800",  dot: "bg-green-500",  label: "Delivered" },
-  cancelled:        { bg: "bg-red-100",    text: "text-red-800",    dot: "bg-red-400",    label: "Cancelled" },
-};
-
-const PAYMENT_LABELS = { mpesa: "M-Pesa", card: "Card", cash: "Cash on delivery" };
 const CAT_EMOJI = { slaughtered:"🥩", fried_pieces:"🍗", fried_whole:"🍖" };
-
-/* ── Status badge ── */
-function StatusBadge({ status }) {
-  const s = STATUS_STYLES[status] ?? STATUS_STYLES.pending;
-  return (
-    <span className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full ${s.bg} ${s.text}`}>
-      <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} />
-      {s.label}
-    </span>
-  );
-}
 
 /* ── Order detail modal ── */
 function OrderModal({ order, onClose, onStatusChange }) {
@@ -44,6 +26,7 @@ function OrderModal({ order, onClose, onStatusChange }) {
     if (!error) {
       setSaved(true);
       onStatusChange(order.id, status);
+      notifyOrder(order.id); // emails the customer about the new status
       setTimeout(() => setSaved(false), 2000);
     }
   }
@@ -60,7 +43,7 @@ function OrderModal({ order, onClose, onStatusChange }) {
               Order #{order.id.slice(0, 8).toUpperCase()}
             </h2>
             <p className="text-xs text-gray-500 mt-0.5">
-              {new Date(order.created_at).toLocaleString("en-KE", { dateStyle: "medium", timeStyle: "short" })}
+              {formatDateTimeLong(order.created_at)}
             </p>
           </div>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors">
@@ -179,6 +162,7 @@ export default function AdminOrders() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [search,       setSearch]       = useState("");
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [ratings, setRatings] = useState({});
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
@@ -196,6 +180,12 @@ export default function AdminOrders() {
 
   useEffect(() => { fetchOrders(); }, [fetchOrders]);
 
+  // Ratings are optional (table may not exist yet) — a failure just means no stars are shown.
+  useEffect(() => {
+    supabase.from("reviews").select("order_id, rating").limit(5000)
+      .then(({ data }) => setRatings(ratingsByOrder(data ?? [])), () => {});
+  }, []);
+
   function handleStatusChange(id, newStatus) {
     setOrders((prev) =>
       prev.map((o) => o.id === id ? { ...o, status: newStatus } : o)
@@ -208,7 +198,8 @@ export default function AdminOrders() {
     return (
       o.customer_name?.toLowerCase().includes(q) ||
       o.phone?.includes(q) ||
-      o.id.slice(0, 8).toLowerCase().includes(q)
+      String(o.id).slice(0, 8).toLowerCase().includes(q) ||
+      itemsOf(o).some((i) => String(i.name ?? "").toLowerCase().includes(q))
     );
   });
 
@@ -253,7 +244,7 @@ export default function AdminOrders() {
           </div>
           <input
             type="text"
-            placeholder="Search by name, phone or order ID…"
+            placeholder="Search by name, item, phone or order ID…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#C8290A]/20 focus:border-[#C8290A]"
@@ -312,7 +303,7 @@ export default function AdminOrders() {
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {filtered.map((order) => {
-                  const items = Array.isArray(order.items) ? order.items : [];
+                  const items = itemsOf(order);
                   return (
                     <tr key={order.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3 font-mono text-xs text-gray-600 font-semibold">
@@ -323,7 +314,11 @@ export default function AdminOrders() {
                         <p className="text-xs text-gray-400">{order.phone}</p>
                       </td>
                       <td className="px-4 py-3 text-gray-600">
-                        {items.length} item{items.length !== 1 ? "s" : ""}
+                        <span className="block max-w-[220px] truncate" title={items.map((i) => `${i.name} ×${i.qty ?? i.quantity ?? 1}`).join(", ")}>
+                          {items.slice(0, 2).map((i) => `${i.name} ×${i.qty ?? i.quantity ?? 1}`).join(", ") || "—"}
+                        </span>
+                        {items.length > 2 && <span className="text-xs text-gray-400">+{items.length - 2} more</span>}
+                        {ratings[order.id] && <span className="block text-xs text-amber-500" title={`Rated ${ratings[order.id]}/5`}>{"★".repeat(ratings[order.id])}</span>}
                       </td>
                       <td className="px-4 py-3 font-semibold text-gray-900 whitespace-nowrap">
                         KSh {order.total?.toLocaleString()}
@@ -336,7 +331,7 @@ export default function AdminOrders() {
                         <StatusBadge status={order.status} />
                       </td>
                       <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">
-                        {new Date(order.created_at).toLocaleDateString("en-KE", { day: "numeric", month: "short" })}
+                        {formatShortDate(order.created_at)}
                       </td>
                       <td className="px-4 py-3">
                         <button

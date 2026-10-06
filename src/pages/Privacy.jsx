@@ -53,6 +53,8 @@ export default function Privacy() {
             "Account details: your name, email address, phone number and password (stored securely by our authentication provider — we never see or store your plain-text password).",
             "Sign-in with Google: your name and email address from your Google account, if you choose that option.",
             "Order details: the items you order, quantities, order notes, order status and history.",
+            "Email address at checkout (optional): used only to send your receipt, order progress updates and a link to track and rate your order.",
+            "Ratings and comments: if you rate an order, we store your rating, any comment you write, your first name and your delivery area. These may be shown to other customers and staff. We never show your phone number or email.",
             "Delivery location: the address you type or pick on the map, and its map coordinates, so we can work out the delivery zone and fee.",
             "Phone number for payment and delivery: used to coordinate delivery and for M-Pesa payment requests.",
             "Loyalty information: your points balance and loyalty tier.",
@@ -63,7 +65,7 @@ export default function Privacy() {
         <Section title="3. How we use it">
           <Bullets items={[
             "To create and manage your account and let you sign in.",
-            "To take, prepare, deliver and confirm your orders, and to contact you about them (call, SMS, WhatsApp).",
+            "To take, prepare, deliver and confirm your orders, and to contact you about them (call, SMS, WhatsApp, email).",
             "To process payments (M-Pesa or cash on delivery) and keep records of sales.",
             "To run our loyalty rewards.",
             "To keep the service secure, prevent fraud and fix problems.",
@@ -76,6 +78,7 @@ export default function Privacy() {
           <p>We only share what is needed to run the service, with these providers:</p>
           <Bullets items={[
             "Supabase — hosts our database and handles sign-in and sending account emails.",
+            "Brevo — sends our order emails (your email address, name and order summary).",
             "Vercel — hosts the website.",
             "Google — Google Maps/Places for addresses and delivery distance, and Google Sign-In if you choose it.",
             "Safaricom M-Pesa — to request and confirm mobile payments.",
